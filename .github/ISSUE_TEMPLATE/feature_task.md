@@ -1,7 +1,7 @@
 ---
 name: Feature Task
 about: Implement a feature or improvement
-labels: ["type:feature","status:todo"]
+labels: ["type: feature","status: todo"]
 ---
 
 ## Goal
