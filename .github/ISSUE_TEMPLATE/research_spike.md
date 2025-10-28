@@ -1,7 +1,7 @@
 ---
 name: Research Spike
 about: Timeboxed investigation or experiment
-labels: ["type:spike","status:todo","priority:*"]
+labels: ["type: spike","status: todo","priority: *"]
 ---
 
 ## Question
