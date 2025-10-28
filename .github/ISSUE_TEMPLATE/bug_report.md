@@ -1,7 +1,7 @@
 ---
 name: Bug Report
 about: Something is broken or incorrect
-labels: ["type:bug","status:todo","priority:**"]
+labels: ["type: bug","status: todo","priority: **"]
 ---
 
 ## Summary
