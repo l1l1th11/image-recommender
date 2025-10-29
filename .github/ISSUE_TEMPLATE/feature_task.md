@@ -8,7 +8,7 @@ labels: ["type: feature","status: todo"]
 <!-- What will exist when this is done? (1–2 sentences) -->
 
 ## Why
-<!-- Tie briefly to the plan/block (e.g., Block 1 CI baseline). -->
+<!-- How the current work ties into the plan/next steps. -->
 
 ## Done when
 <!-- Objective acceptance checks (e.g. tests passing, CI green, documentation updated). -->
