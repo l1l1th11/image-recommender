@@ -1,0 +1,15 @@
+[tool.ruff]
+
+# keeps wrapping consistent
+line-length = 100  
+
+# selected rules
+# E: pycodestyle (PEP8 basics)
+# F: pyflakes (code issues e.g. unused/undefined)
+# I: import sorting
+# B: flake8-bugbear (bug-prone patterns)
+# UP: pyupgrade (modern syntax on 3.12)
+select = ["E", "F", "I", "B", "UP"]
+
+# excluded files
+extend-exclude = ["data/"]
