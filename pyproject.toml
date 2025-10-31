@@ -1,8 +1,13 @@
+# general settings
 [tool.ruff]
-
 # keeps wrapping consistent
 line-length = 100  
+# excluded files
+extend-exclude = ["data/"]
 
+
+# linter rules
+[tool.ruff.lint]
 # selected rules
 # E: pycodestyle (PEP8 basics)
 # F: pyflakes (code issues e.g. unused/undefined)
@@ -10,6 +15,3 @@ line-length = 100
 # B: flake8-bugbear (bug-prone patterns)
 # UP: pyupgrade (modern syntax on 3.12)
 select = ["E", "F", "I", "B", "UP"]
-
-# excluded files
-extend-exclude = ["data/"]

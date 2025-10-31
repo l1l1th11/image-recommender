@@ -1,0 +1,7 @@
+# hook runs on staged files, if changes are made commits are aborted for review
+repos:
+- repo: https://github.com/astral-sh/ruff-pre-commit  # hook repo
+  rev: v0.14.3  # ruff version
+  hooks:
+    - id: ruff-check  # linter
+      args: [ --fix ]  # enables lint fixes
