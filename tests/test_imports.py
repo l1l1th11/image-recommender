@@ -1,5 +1,3 @@
-import os
-
 def test_import_package():
     import image_recommender
 
