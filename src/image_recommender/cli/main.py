@@ -18,6 +18,17 @@ def build_parser() -> ArgumentParser:
     )
     # call function (via handler)
     cmd_ls.set_defaults(run=handle_list_samples)
+    # filter by extension
+    cmd_ls.add_argument(
+        "--ext",
+        nargs="+",
+        metavar="EXT",
+        help="Filter by extensions (space separated). Example: --ext jpg png",
+    )
+    # limit number of files
+    cmd_ls.add_argument(
+        "--limit", type=int, default=None, metavar="LIM", help="Max number of files to list"
+    )
 
     return parser
 

@@ -20,7 +20,7 @@ def list_samples(
         # append if image file
         items = [p for p in items if suf(p) in extset]
 
-    # sort by path (deterministic)
+    # sort by filename (deterministic)
     items.sort(key=lambda p: p.name)
 
     if limit and limit > 0:
