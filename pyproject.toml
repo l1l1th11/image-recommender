@@ -1,6 +1,6 @@
-# --------------------------------------------
+# ------------------------------------------------------
 # Black (formatter)
-# --------------------------------------------
+# ------------------------------------------------------
 [tool.black]
 # keep wrapping consistent
 line-length = 100
@@ -8,9 +8,9 @@ line-length = 100
 target-version = ["py312"]
 
 
-# --------------------------------------------
+# ------------------------------------------------------
 # Ruff (linter + import sorting)
-# --------------------------------------------
+# ------------------------------------------------------
 [tool.ruff.lint]
 # rules
 # - E: pycodestyle (PEP8 basics)
@@ -24,3 +24,25 @@ select = ["E", "F", "I", "B", "UP"]
 # - E203: slicing spacing style
 # - E501: line length
 ignore = ["E203", "E501"]
+
+
+# ------------------------------------------------------
+# Packaging (make src/ importable via editable install)
+# ------------------------------------------------------
+[build-system]
+# install requirements for pip
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+# package metadata
+name = "image-recommender"
+version = "0.0.1"
+
+[tool.setuptools]
+# map root of packages to src/
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+# tell setuptools to discover packages under src/
+where = ["src"]
