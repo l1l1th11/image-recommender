@@ -1,0 +1,23 @@
+# hooks run on staged files
+# if they modify files, the commit aborts
+
+
+repos:
+# -----------------------------------------------------------------------------------------
+# Black (formatter)
+# -----------------------------------------------------------------------------------------
+  - repo: https://github.com/psf/black-pre-commit-mirror  # hook repo
+    rev: 25.9.0                                           # version
+    hooks:
+      - id: black                                         # format
+        language_version: python3.12                      # match projects python version
+
+
+# -----------------------------------------------------------------------------------------
+# Ruff (linter + import sorting)
+# -----------------------------------------------------------------------------------------
+  - repo: https://github.com/astral-sh/ruff-pre-commit    # hook repo
+    rev: v0.14.3                                          # version
+    hooks:
+      - id: ruff-check                                    # lint
+        args: [ --fix ]                                   # enable auto fixes

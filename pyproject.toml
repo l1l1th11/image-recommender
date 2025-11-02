@@ -1,0 +1,26 @@
+# --------------------------------------------
+# Black (formatter)
+# --------------------------------------------
+[tool.black]
+# keep wrapping consistent
+line-length = 100
+# for python 3.12
+target-version = ["py312"]
+
+
+# --------------------------------------------
+# Ruff (linter + import sorting)
+# --------------------------------------------
+[tool.ruff.lint]
+# rules
+# - E: pycodestyle (PEP8 basics)
+# - F: pyflakes (unused/undefined etc.)
+# - I: import sorting
+# - B: flake8-bugbear (bug-prone patterns)
+# - UP: pyupgrade (modern syntax on 3.12)
+select = ["E", "F", "I", "B", "UP"]
+
+# avoid conflicts with black
+# - E203: slicing spacing style
+# - E501: line length
+ignore = ["E203", "E501"]
