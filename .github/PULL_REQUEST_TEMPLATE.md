@@ -7,11 +7,11 @@ Closes #
 
 ## Scope
 <!-- Short bullets of what this PR actually changes/adds. No future work. -->
-- [ ]
+- 
 
 ## How Tested / Evidence
 <!-- What proves it works? Paste commands & outcomes; attach logs/screens if useful. -->
-- [ ] 
+-  
 - Notes:
 
 ## Risk & Rollback (optional)
