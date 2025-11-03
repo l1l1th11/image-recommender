@@ -1,0 +1,55 @@
+name: python-job
+
+on:
+  workflow_call:
+    inputs:
+      # lint-format, tests or cli-smoke
+      task:
+        type: string
+        required: true        
+      python:
+        type: string
+        default: '3.12'
+
+defaults:
+  run:
+    shell: bash -euo pipefail  # fail fast shell
+
+jobs:
+  job:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: check out repo
+        uses: actions/checkout@v4
+
+      - name: set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python }}  # lets caller override if needed
+          cache: pip
+
+      - name: upgrade pip
+        run: python -m pip install --upgrade pip  # base environment
+
+      - name: install package (editable)
+        if: ${{ inputs.task == 'cli-smoke' }}
+        run: pip install -e .  # add src to pythonpath
+
+      - name: lint & format (pre-commit)
+        if: ${{ inputs.task == 'lint-format' }}
+        uses: pre-commit/action@v3.0.1  # pre commit config for ruff/black hooks
+
+      - name: run pytest
+        if: ${{ inputs.task == 'tests' }}
+        run: |
+          pip install pytest
+          pytest -q
+
+      - name: cli smoke
+        if: ${{ inputs.task == 'cli-smoke' }}
+        run: |
+          # show cli help (validates argparse wiring)
+          python -m image_recommender.cli --help
+          # list max one sample (empty dir won't error)
+          python -m image_recommender.cli list-samples --limit 1
