@@ -11,7 +11,7 @@ B:
 * **Block 3** — I/O & Reliability
 * **Block 4** — Feature Storage
 * **Block 7** — Perceptual Hash
-- **Block 9** — Recommender & CLI
+* **Block 9** — Recommender & CLI
 * **Block 10** — Visualization
 * **Block 12** — Docs & slides *(primary)*
 
@@ -26,9 +26,9 @@ B:
 
 **Week 2**
 
-- A: **Block 5 — HSV (samples-only)**: extractor + distances; self-contained read helper  
+- A: **Block 5 — HSV (samples)**: extractor + distances; self-contained read helper  
 - B: **Block 3 — I/O & Reliability (complete)**: loader (RGB uint8, skip-bad, log) + atomic writes + sharding math & CLI flags + resume markers & pending-shards helper
-- B: **Block 4 — Feature Storage (minimal)**: `.npy` + `ids.txt` + `meta.json` (atomic)
+- B: **Block 4 — Feature Storage (minimal)**: .npy + ids.txt + meta.json (atomic)
     
 
 **Week 3**
@@ -45,7 +45,8 @@ B:
 
 **Week 5**
 
-- A: **Block 8 — Annoy (wiring & build, pilot)**; index persistence  
+- A: **Block 8 — Annoy (wiring & build, pilot)**; index persistence
+- A: **Block 6 — Embeddings (pilot on HDD → finish full)**  
 - B: **Block 10 — Visualization**: pilot map; subsampled full; exports
     
 
