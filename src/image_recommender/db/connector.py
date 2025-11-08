@@ -127,3 +127,11 @@ def iter_all_ids(db_path: str | None = None) -> Iterator[int]:
         cur = conn.execute("SELECT image_id FROM images")
         for row in cur:
             yield row[0]  # yield image_id
+
+
+def iter_all_paths(db_path=None):
+    """Iterate over all image paths in the database."""
+    with get_conn(db_path=db_path) as conn:
+        cur = conn.execute("SELECT path FROM images")
+        for row in cur:
+            yield row[0]  # yield path
