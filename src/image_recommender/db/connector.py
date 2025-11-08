@@ -44,10 +44,10 @@ def upsert_image(
     with get_conn(db_path=db_path) as conn:
         conn.execute(
             """
-            INSERT INTO images (path, width, height, ext, bytes, added_at)  # sql command
+            INSERT INTO images (path, width, height, ext, bytes, added_at)
             VALUES (?, ?, ?, ?, ?, ?)
 
-            ON CONFLICT(path) DO UPDATE SET  # update path in case of conflict
+            ON CONFLICT(path) DO UPDATE SET
                 width = excluded.width,
                 height = excluded.height,
                 ext = excluded.ext,
