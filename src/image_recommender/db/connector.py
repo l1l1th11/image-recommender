@@ -28,3 +28,28 @@ def init_db(db_path=None):
     with get_conn(db_path=db_path) as conn:
         with open("src/image_recommender/db/schema.sql", encoding="utf-8") as f:
             conn.executescript(f.read())  # execute SQL script
+
+
+def upsert_image(
+    path=str, width=None, height=None, ext=None, bytes_=None, added_at=None, db_path=None
+):
+    """
+    Updates or inserts an image into the database.
+    """
+    with get_conn(db_path=db_path) as conn:
+        conn.execute(
+            """
+            INSERT INTO images (path, width, height, ext, bytes, added_at)  # sql command
+            VALUES (?, ?, ?, ?, ?, ?)
+
+            ON CONFLICT(path) DO UPDATE SET  # update path in case of conflict
+                width = excluded.width,
+                height = excluded.height,
+                ext = excluded.ext,
+                bytes = excluded.bytes,
+                added_at = excluded.added_at
+            """,
+            (path, width, height, ext, bytes_, added_at),
+        )
+        cur = conn.execute("SELECT image_id FROM images WHERE path = ?", (path,))  # fetch image_id
+        return cur.fetchone()["image_id"]  # return image_id
