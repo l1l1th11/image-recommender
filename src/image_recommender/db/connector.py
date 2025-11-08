@@ -102,3 +102,21 @@ def delete_by_path(path=str, db_path=None):
     """Deletes an image by its path."""
     with get_conn(db_path=db_path) as conn:
         conn.execute("DELETE FROM images WHERE path = ?", (path,))
+
+
+# ---------- PERFORMANCE SANITY (Nice-to-have) ----------
+
+
+def count(db_path=None):
+    """Return the total number of images in the database."""
+    with get_conn(db_path=db_path) as conn:
+        cur = conn.execute("SELECT COUNT(*) AS n FROM images")
+        return cur.fetchone()["n"]
+
+
+def iter_all_ids(db_path=None):
+    """Iterate over all image IDs in the database."""
+    with get_conn(db_path=db_path) as conn:
+        cur = conn.execute("SELECT image_id FROM images")
+        for row in cur:
+            yield row[0]  # yield image_id
