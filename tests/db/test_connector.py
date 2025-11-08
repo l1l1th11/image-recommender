@@ -64,3 +64,32 @@ def test_crud_roundtrip(tmp_db, example_image):
     # DELETE by id
     connector.delete_by_id(image_id, db_path=tmp_db)
     assert connector.get_by_id(image_id, db_path=tmp_db) is None
+
+
+# ---------- UNIQUE PATH TESTS ----------
+
+
+def test_unique_path(tmp_db, example_image):
+    id1 = connector.upsert_image(**example_image, db_path=tmp_db)
+    id2 = connector.upsert_image(**example_image, db_path=tmp_db)
+    assert id1 == id2  # Is the same image_id returned for the same path?
+    rows = list(connector.iter_all_ids(db_path=tmp_db))
+    assert len(rows) == 1  # Is there only one entry in the DB?
+
+
+# ---------- PERFORMANCE SANITY TESTS ----------
+
+
+def test_count_and_iter_all(tmp_db, example_image):
+    assert connector.count(db_path=tmp_db) == 0  # Is the count zero initially?
+
+    for i in range(5):
+        img = example_image.copy()
+        img["path"] = f"images/sample_{i}.jpg"  # different path for each image (five images)
+        connector.upsert_image(**img, db_path=tmp_db)
+
+    assert connector.count(db_path=tmp_db) == 5  # Is the count five after inserting five images?
+
+    ids = list(connector.iter_all_ids(db_path=tmp_db))
+
+    assert len(ids) == 5  # Are there five images in the DB (in the list)?
