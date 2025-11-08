@@ -30,6 +30,11 @@ def init_db(db_path=None):
             conn.executescript(f.read())  # execute SQL script
 
 
+#  CRUD OPERATIONS (Create, Read, Update, Delete):
+
+# ---------- CREATE / UPDATE ----------
+
+
 def upsert_image(
     path=str, width=None, height=None, ext=None, bytes_=None, added_at=None, db_path=None
 ):
@@ -53,3 +58,47 @@ def upsert_image(
         )
         cur = conn.execute("SELECT image_id FROM images WHERE path = ?", (path,))  # fetch image_id
         return cur.fetchone()["image_id"]  # return image_id
+
+
+# ---------- READ ----------
+
+
+def get_by_id(image_id, db_path=None):
+    """
+    Retrieves an image by its ID.
+    """
+    with get_conn(db_path=db_path) as conn:
+        cur = conn.execute("SELECT * FROM images WHERE image_id = ?", (image_id,))
+        return cur.fetchone()  # return the image row (or None)
+
+
+def get_by_path(path, db_path=None):
+    """
+    Retrieves an image by its path.
+    """
+    with get_conn(db_path=db_path) as conn:
+        cur = conn.execute("SELECT * FROM images WHERE path = ?", (path,))
+        return cur.fetchone()  # return the image row (or None)
+
+
+def get_path_by_id(image_id=int, db_path=None):
+    """Retrieves only the file path for a given image_id."""
+    with get_conn(db_path=db_path) as conn:
+        cur = conn.execute("SELECT path FROM images WHERE image_id = ?", (image_id,))
+        row = cur.fetchone()
+        return row["path"] if row else None
+
+
+# ---------- DELETE ----------
+
+
+def delete_by_id(image_id=int, db_path=None):
+    """Deletes an image by its ID."""
+    with get_conn(db_path=db_path) as conn:
+        conn.execute("DELETE FROM images WHERE image_id = ?", (image_id,))
+
+
+def delete_by_path(path=str, db_path=None):
+    """Deletes an image by its path."""
+    with get_conn(db_path=db_path) as conn:
+        conn.execute("DELETE FROM images WHERE path = ?", (path,))
