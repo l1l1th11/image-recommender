@@ -1,6 +1,5 @@
 import sqlite3
-from collections.abc import Iterator
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 
 DB_PATH = "data/metadata.db"  # default path to the DB
 
@@ -37,18 +36,15 @@ def init_db(db_path: str | None = None) -> None:
 
 
 def upsert_image(
-    path: str,
-    width: int | None = None,
-    height: int | None = None,
-    ext: str | None = None,
-    bytes_: bytes | None = None,
-    added_at: str | None = None,
-    db_path: str | None = None,
+    path=str, width=None, height=None, ext=None, bytes_=None, added_at=None, db_path=None, conn=None
 ):
     """
     Updates or inserts an image into the database.
     """
-    with get_conn(db_path=db_path) as conn:
+    own_conn = conn is None
+    with (
+        get_conn(db_path=db_path) if own_conn else nullcontext(conn)
+    ) as conn:  # nullcontext: no-op context manager
         conn.execute(
             """
             INSERT INTO images (path, width, height, ext, bytes, added_at)
