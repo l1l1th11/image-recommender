@@ -1,5 +1,6 @@
 import pytest
 
+from image_recommender.cli.main import main
 from image_recommender.cli.make_pilot import make_pilot
 from image_recommender.db import connector
 
@@ -64,3 +65,37 @@ def test_make_pilot_deterministic(tmp_path, small_db):
         ids3 = [line.strip() for line in f]
 
     assert ids1 != ids3, "Different seed should produce different pilot IDs"
+
+
+# ---------- CLI SMOKE ----------
+
+
+def test_make_pilot_cli(tmp_path, small_db, monkeypatch):
+    """Tests that the CLI produces the same pilot set."""
+    db_path, _ = small_db
+    out = tmp_path / "pilot_cli.csv"
+
+    # simulating command line
+
+    monkeypatch.setattr(
+        "sys.argv",
+        [  # monkeypatch overrides sys.argv
+            "image-recommender",
+            "make-pilot",
+            "--db",
+            str(db_path),
+            "--seed",
+            "42",
+            "--n",
+            "2",
+            "--out",
+            str(out),
+        ],
+    )
+
+    rc = main()  # run cli
+    assert rc == 0  # no error
+    assert out.exists()  # output file exists
+    with open(out) as f:
+        lines = [line.strip() for line in f]
+    assert len(lines) == 2  # two ids
