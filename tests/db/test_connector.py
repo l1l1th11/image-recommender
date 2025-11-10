@@ -1,6 +1,8 @@
 import os
 import tempfile
+from collections.abc import Generator
 from datetime import datetime
+from typing import Any
 
 import pytest
 
@@ -8,7 +10,7 @@ from image_recommender.db import connector
 
 
 @pytest.fixture
-def tmp_db():
+def tmp_db() -> Generator[str, None, None]:
     """Creates a temporary database to run tests."""
     fd, path = tempfile.mkstemp(suffix=".db")  # create temp file as .db
     os.close(fd)  # only path not file descriptor needed
@@ -21,7 +23,7 @@ def tmp_db():
 
 
 @pytest.fixture
-def example_image():
+def example_image() -> dict[str, Any]:
     """Provides an example image."""
     return {
         "path": "images/example.jpg",
@@ -36,7 +38,7 @@ def example_image():
 # ---------- CRUD TESTS ----------
 
 
-def test_crud_roundtrip(tmp_db, example_image):
+def test_crud_roundtrip(tmp_db: str, example_image: dict[str, Any]) -> None:
     # CREATE
     image_id = connector.upsert_image(
         **example_image, db_path=tmp_db
@@ -69,7 +71,7 @@ def test_crud_roundtrip(tmp_db, example_image):
 # ---------- UNIQUE PATH TESTS ----------
 
 
-def test_unique_path(tmp_db, example_image):
+def test_unique_path(tmp_db: str, example_image: dict[str, Any]) -> None:
     id1 = connector.upsert_image(**example_image, db_path=tmp_db)
     id2 = connector.upsert_image(**example_image, db_path=tmp_db)
     assert id1 == id2  # Is the same image_id returned for the same path?
@@ -80,7 +82,7 @@ def test_unique_path(tmp_db, example_image):
 # ---------- PERFORMANCE SANITY TESTS ----------
 
 
-def test_count_and_iter_all(tmp_db, example_image):
+def test_count_and_iter_all(tmp_db: str, example_image: dict[str, Any]) -> None:
     assert connector.count(db_path=tmp_db) == 0  # Is the count zero initially?
 
     for i in range(5):
