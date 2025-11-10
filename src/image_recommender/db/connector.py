@@ -1,4 +1,5 @@
 import sqlite3
+from collections.abc import Iterator
 from contextlib import contextmanager, nullcontext
 
 DB_PATH = "data/metadata.db"  # default path to the DB
