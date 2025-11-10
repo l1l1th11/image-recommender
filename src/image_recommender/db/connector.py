@@ -1,11 +1,12 @@
 import sqlite3
+from collections.abc import Iterator
 from contextlib import contextmanager
 
 DB_PATH = "data/metadata.db"  # default path to the DB
 
 
 @contextmanager  # manage DB connections
-def get_conn(db_path=None):
+def get_conn(db_path: str | None = None) -> Iterator[sqlite3.Connection]:
     """
     Provides a SQLite connection as a context manager.
     Commits changes and closes the connection automatically.
@@ -21,7 +22,7 @@ def get_conn(db_path=None):
         conn.close()  # automatic commit and close
 
 
-def init_db(db_path=None):
+def init_db(db_path: str | None = None) -> None:
     """
     Initializes the database schema from the schema.sql file.
     """
@@ -36,7 +37,13 @@ def init_db(db_path=None):
 
 
 def upsert_image(
-    path=str, width=None, height=None, ext=None, bytes_=None, added_at=None, db_path=None
+    path: str,
+    width: int | None = None,
+    height: int | None = None,
+    ext: str | None = None,
+    bytes_: bytes | None = None,
+    added_at: str | None = None,
+    db_path: str | None = None,
 ):
     """
     Updates or inserts an image into the database.
@@ -63,7 +70,7 @@ def upsert_image(
 # ---------- READ ----------
 
 
-def get_by_id(image_id, db_path=None):
+def get_by_id(image_id: int, db_path: str | None = None) -> sqlite3.Row | None:
     """
     Retrieves an image by its ID.
     """
@@ -72,7 +79,7 @@ def get_by_id(image_id, db_path=None):
         return cur.fetchone()  # return the image row (or None)
 
 
-def get_by_path(path, db_path=None):
+def get_by_path(path: str, db_path: str | None = None) -> sqlite3.Row | None:
     """
     Retrieves an image by its path.
     """
@@ -81,7 +88,7 @@ def get_by_path(path, db_path=None):
         return cur.fetchone()  # return the image row (or None)
 
 
-def get_path_by_id(image_id=int, db_path=None):
+def get_path_by_id(image_id: int, db_path: str | None = None) -> str | None:
     """Retrieves only the file path for a given image_id."""
     with get_conn(db_path=db_path) as conn:
         cur = conn.execute("SELECT path FROM images WHERE image_id = ?", (image_id,))
@@ -92,13 +99,13 @@ def get_path_by_id(image_id=int, db_path=None):
 # ---------- DELETE ----------
 
 
-def delete_by_id(image_id=int, db_path=None):
+def delete_by_id(image_id: int, db_path: str | None = None) -> None:
     """Deletes an image by its ID."""
     with get_conn(db_path=db_path) as conn:
         conn.execute("DELETE FROM images WHERE image_id = ?", (image_id,))
 
 
-def delete_by_path(path=str, db_path=None):
+def delete_by_path(path: str, db_path: str | None = None) -> None:
     """Deletes an image by its path."""
     with get_conn(db_path=db_path) as conn:
         conn.execute("DELETE FROM images WHERE path = ?", (path,))
@@ -107,14 +114,14 @@ def delete_by_path(path=str, db_path=None):
 # ---------- PERFORMANCE SANITY (Nice-to-have) ----------
 
 
-def count(db_path=None):
+def count(db_path: str | None = None) -> int:
     """Return the total number of images in the database."""
     with get_conn(db_path=db_path) as conn:
         cur = conn.execute("SELECT COUNT(*) AS n FROM images")
         return cur.fetchone()["n"]
 
 
-def iter_all_ids(db_path=None):
+def iter_all_ids(db_path: str | None = None) -> Iterator[int]:
     """Iterate over all image IDs in the database."""
     with get_conn(db_path=db_path) as conn:
         cur = conn.execute("SELECT image_id FROM images")
