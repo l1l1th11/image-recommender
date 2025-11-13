@@ -5,18 +5,21 @@ on:
   push:                  # and on pushes to main
     branches: [main]
 
+# call reusable workflow for tasks
 jobs:
   # lint & format via pre commit action (ruff + black hooks from repo config)
   lint-format:
-    uses: l1l1th11/image-recommender/.github/workflows/python-job.yml@main
-    with: { task: lint-format }
+    uses: ./.github/workflows/python-job.yml
+    with: 
+      task: lint-format
 
   # unit tests (pytest)
   tests:
-    uses: l1l1th11/image-recommender/.github/workflows/python-job.yml@main
-    with: { task: tests }
+    uses: ./.github/workflows/python-job.yml
+    with: 
+      task: tests
 
-  # tiny cli smoke (import & basic command)
   cli-smoke:
-    uses: l1l1th11/image-recommender/.github/workflows/python-job.yml@main
-    with: { task: cli-smoke }
+    uses: ./.github/workflows/python-job.yml
+    with: 
+      task: cli-smoke
