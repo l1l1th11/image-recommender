@@ -1,6 +1,8 @@
 from argparse import ArgumentParser
 from collections.abc import Sequence
 
+from image_recommender.util.logs import setup_basic_logging
+
 from .commands import handle_list_samples
 
 
@@ -39,6 +41,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     - If argv is None: read args from sys.argv[1:]
     - If argv is a sequence: use provided args (for tests)
     """
+    setup_basic_logging()  # configure logging once
+
     parser = build_parser()
     args = parser.parse_args(argv)
     # return exit code (0: success, non-zero: error)
