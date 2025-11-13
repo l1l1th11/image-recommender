@@ -22,6 +22,6 @@ Closes #
 
 ## Checklist
 - [ ] Labels set (area, block, priority)
-- [ ] Lint passes (ruff/black)
+- [ ] CI passes (lint-format, tests, cli-smoke)
 - [ ] Tests updated/added (only for what this PR changes)
 - [ ] Docs/README updated if needed
