@@ -45,6 +45,7 @@ def upsert_image(
     bytes_: bytes | None = None,
     added_at: str | None = None,
     db_path: str | None = None,
+    conn=None,
 ):
     """
     Updates or inserts an image into the database.
