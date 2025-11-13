@@ -23,7 +23,7 @@ jobs:
       - name: check out repo
         uses: actions/checkout@v4
 
-      - name: set up Python
+      - name: set up python
         uses: actions/setup-python@v5
         with:
           python-version: ${{ inputs.python }}  # lets caller override if needed
@@ -43,13 +43,14 @@ jobs:
       - name: run pytest
         if: ${{ inputs.task == 'tests' }}
         run: |
-          pip install pytest
+          # install package, runtime deps and test deps from pyproject
+          pip install -e '.[test]'
           pytest -q
 
       - name: cli smoke
         if: ${{ inputs.task == 'cli-smoke' }}
         run: |
-          # show cli help (validates argparse wiring)
+          # show cli help (validate argparse wiring)
           python -m image_recommender.cli --help
           # list max one sample (empty dir won't error)
           python -m image_recommender.cli list-samples --limit 1
