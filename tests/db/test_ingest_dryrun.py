@@ -14,7 +14,9 @@ def test_ingest_dryrun(tmp_path):
     - A valid image file
     - An image file with the same path already in the DB
     """
-    samples_dir = Path(r"data\samples")  # directory with sample images
+    samples_dir = (
+        Path(__file__).resolve().parent.parent.parent / "data" / "samples"
+    )  # directory with sample images
     assert samples_dir.exists(), f"{samples_dir} does not exist."
 
     db_path = os.path.join(tmp_path, "test_samples.db")  # temporary DB
