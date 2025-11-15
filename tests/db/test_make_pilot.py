@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 
 from image_recommender.cli.main import main
@@ -6,13 +8,13 @@ from image_recommender.db import connector
 
 
 @pytest.fixture
-def small_db(tmp_path):
+def small_db(tmp_path: Path) -> tuple[Path, list[str]]:
     """Creates a tiny in-memory DB with predictable image_ids."""
     db_path = tmp_path / "metadata.db"  # temporary DB
     connector.init_db(db_path=db_path)
 
     # Insert 5 images
-    image_paths = [f"/img{i}.jpg" for i in range(5)]
+    image_paths: list[str] = [f"/img{i}.jpg" for i in range(5)]
     for i, path in enumerate(image_paths):  # upserting dummy metadata
         connector.upsert_image(
             path=path,
@@ -29,7 +31,7 @@ def small_db(tmp_path):
 # ---------- TEST: DETERMINISTIC PILOT ----------
 
 
-def test_make_pilot_deterministic(tmp_path, small_db):
+def test_make_pilot_deterministic(tmp_path: Path, small_db: tuple[Path, list[str]]) -> None:
     """Tests that the same seed produces the same pilot set."""
     db_path, _ = small_db
     out1 = tmp_path / "pilot1.csv"
@@ -70,7 +72,7 @@ def test_make_pilot_deterministic(tmp_path, small_db):
 # ---------- CLI SMOKE ----------
 
 
-def test_make_pilot_cli(tmp_path, small_db, monkeypatch):
+def test_make_pilot_cli(tmp_path: Path, small_db: tuple[Path, list[str]], monkeypatch) -> None:
     """Tests that the CLI produces the same pilot set."""
     db_path, _ = small_db
     out = tmp_path / "pilot_cli.csv"
@@ -96,6 +98,7 @@ def test_make_pilot_cli(tmp_path, small_db, monkeypatch):
     rc = main()  # run cli
     assert rc == 0  # no error
     assert out.exists()  # output file exists
+
     with open(out) as f:
         lines = [line.strip() for line in f]
-    assert len(lines) == 2  # two ids
+    assert len(lines) == 2  # two Ids
