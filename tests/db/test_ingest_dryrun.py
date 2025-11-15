@@ -8,29 +8,29 @@ from image_recommender.db import connector
 from image_recommender.ingest_metadata import scan_and_ingest_metadata
 
 
-def test_ingest_dryrun(tmp_path):
+def test_ingest_dryrun(tmp_path: Path) -> None:
     """
     Tests ingesting metadata from a directory containing:
     - A valid image file
     - An image file with the same path already in the DB
     """
-    samples_dir = (
+    samples_dir: Path = (
         Path(__file__).resolve().parent.parent.parent / "data" / "samples"
     )  # directory with sample images
     assert samples_dir.exists(), f"{samples_dir} does not exist."
 
-    db_path = os.path.join(tmp_path, "test_samples.db")  # temporary DB
-    test_dir = os.path.join(tmp_path, "copied_samples")
+    db_path: str = os.path.join(tmp_path, "test_samples.db")  # temporary DB
+    test_dir: str = os.path.join(tmp_path, "copied_samples")
     os.makedirs(test_dir, exist_ok=True)
 
-    connector.init_db(db_path=str(db_path))
+    connector.init_db(db_path=db_path)
 
     # ---------- COPY SAMPLE IMAGES ----------
 
-    copied_files = []
+    copied_files: list[str] = []
     for f in samples_dir.iterdir():
         if f.suffix.lower() in {".jpg", ".jpeg", ".png"}:  # pick valid image files
-            dst = os.path.join(test_dir, f.name)
+            dst: str = os.path.join(test_dir, f.name)
             shutil.copy(f, dst)  # use shutil to copy files
             copied_files.append(dst)
 
@@ -38,17 +38,17 @@ def test_ingest_dryrun(tmp_path):
 
     # ---------- CREATE INVALID IMAGE ----------
 
-    bad_file = os.path.join(test_dir, "invalid_image_file.png")
+    bad_file: str = os.path.join(test_dir, "invalid_image_file.png")
     with open(bad_file, "wb") as f:
         f.write(b"\x00\x00NOT_A_REAL_IMAGE")
 
     # ---------- INGEST CHECK ----------
 
-    scan_and_ingest_metadata(base_path=str(test_dir), db_path=str(db_path))  # ingestion on copy
+    scan_and_ingest_metadata(base_path=test_dir, db_path=db_path)  # ingestion on copy
 
     # ---------- VERIFY VALID FILES ----------
 
-    valid_files = []  # list of valid image files
+    valid_files: list[str] = []  # list of valid image files
     for f in copied_files:
         try:
             with Image.open(f):
@@ -56,7 +56,7 @@ def test_ingest_dryrun(tmp_path):
         except (UnidentifiedImageError, OSError):
             continue
 
-    assert connector.count(db_path=str(db_path)) == len(
+    assert connector.count(db_path=db_path) == len(
         valid_files
     )  # Are there as many images in the DB as valid files?
 
@@ -73,12 +73,12 @@ def test_ingest_dryrun(tmp_path):
 
     # ---------- IDMPOTENCE CHECK ----------
 
-    image_ids_before = {
+    image_ids_before: dict[str, int] = {
         f: connector.get_by_path(str(Path(f).resolve()), db_path=db_path)["image_id"]
         for f in valid_files
     }
 
-    scan_and_ingest_metadata(base_path=str(test_dir), db_path=str(db_path))
+    scan_and_ingest_metadata(base_path=test_dir, db_path=db_path)
 
     for f in valid_files:
         row = connector.get_by_path(str(Path(f).resolve()), db_path=db_path)
@@ -86,17 +86,17 @@ def test_ingest_dryrun(tmp_path):
             row["image_id"] == image_ids_before[f]
         )  # Are the IDs the same as before (idempotence)?
 
-    assert connector.count(db_path=str(db_path)) == len(
+    assert connector.count(db_path=db_path) == len(
         valid_files
     )  # Are there as many images in the DB as valid files?
 
     # ---------- ADD AN EXTRA BAD FILE ----------
 
-    extra_bad_file = os.path.join(test_dir, "corrupt_image.jpg")
+    extra_bad_file: str = os.path.join(test_dir, "corrupt_image.jpg")
     with open(extra_bad_file, "wb") as f:
         f.write(b"\x00\x00INVALID")
 
-    scan_and_ingest_metadata(base_path=str(test_dir), db_path=str(db_path))
+    scan_and_ingest_metadata(base_path=test_dir, db_path=db_path)
 
     assert (
         connector.get_by_path(str(Path(extra_bad_file).resolve()), db_path=db_path) is None
