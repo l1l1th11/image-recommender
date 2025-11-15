@@ -61,10 +61,15 @@ def test_ingest_dryrun(tmp_path):
     )  # Are there as many images in the DB as valid files?
 
     for f in valid_files:
-        row = connector.get_by_path(str(Path(f).resolve()), db_path=db_path)
-        assert row is not None
-        assert Path(row["path"]).is_absolute()
-        assert row["ext"] == os.path.splitext(f)[1].lower()  # Are the extensions the same?
+        with Image.open(f) as img:
+            row = connector.get_by_path(str(Path(f).resolve()), db_path=db_path)
+            assert row is not None  # Does the image exist in the DB?
+            assert Path(row["path"]).is_absolute()  # Is the path absolute?
+            assert row["ext"] == os.path.splitext(f)[1].lower()  # Are the extensions the same?
+            assert row["width"] == img.width, f"Width mismatch for {f}"  # Are the widths the same?
+            assert (
+                row["height"] == img.height
+            ), f"Height mismatch for {f}"  # Are the heights the same?
 
     # ---------- IDMPOTENCE CHECK ----------
 
@@ -80,6 +85,10 @@ def test_ingest_dryrun(tmp_path):
         assert (
             row["image_id"] == image_ids_before[f]
         )  # Are the IDs the same as before (idempotence)?
+
+    assert connector.count(db_path=str(db_path)) == len(
+        valid_files
+    )  # Are there as many images in the DB as valid files?
 
     # ---------- ADD AN EXTRA BAD FILE ----------
 
