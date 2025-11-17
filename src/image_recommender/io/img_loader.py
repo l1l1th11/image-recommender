@@ -10,7 +10,7 @@ from image_recommender.util.logs import get_logger
 log = get_logger(__name__)  # pass modules name
 
 
-def load_rgb(path: str | Path) -> np.ndarray:
+def read_rgb(path: str | Path) -> np.ndarray:
     """
     Loads an image from a given path using PIL (lazy)
     """
@@ -52,5 +52,9 @@ def load_rgb(path: str | Path) -> np.ndarray:
         msg = f"{path} | invalid shape {tuple(img_array.shape)} (expected [H,W,3])"
         log.error(msg)
         raise ImageLoadError(msg)
+
+    # ensure dtype is uint8
+    if img_array.dtype != np.uint8:
+        img_array = img_array.astype(np.uint8, copy=False)
 
     return img_array
