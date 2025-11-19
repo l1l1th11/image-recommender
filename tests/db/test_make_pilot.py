@@ -2,8 +2,8 @@ from pathlib import Path
 
 import pytest
 
+from image_recommender.cli.commands import handle_make_pilot
 from image_recommender.cli.main import main
-from image_recommender.cli.make_pilot import make_pilot
 from image_recommender.db import connector
 
 
@@ -46,13 +46,13 @@ def test_make_pilot_deterministic(tmp_path: Path, small_db: tuple[Path, list[str
     args.seed = 42  # seed
     args.out = str(out1)  # output file path
 
-    make_pilot(args)  # <-- make pilot giving parameters
+    handle_make_pilot(args)  # <-- make pilot giving parameters
 
     with open(out1) as f:
         ids1 = [line.strip() for line in f]
 
     args.out = str(out2)
-    make_pilot(args)
+    handle_make_pilot(args)
     with open(out2) as f:
         ids2 = [line.strip() for line in f]
 
@@ -62,7 +62,7 @@ def test_make_pilot_deterministic(tmp_path: Path, small_db: tuple[Path, list[str
 
     args.seed = 123
     args.out = str(out2)
-    make_pilot(args)
+    handle_make_pilot(args)
     with open(out2) as f:
         ids3 = [line.strip() for line in f]
 
