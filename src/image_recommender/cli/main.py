@@ -1,9 +1,10 @@
 from argparse import ArgumentParser
 from collections.abc import Sequence
 
+from image_recommender.db.pilot import create_pilot_set
 from image_recommender.util.logs import setup_basic_logging
 
-from .commands import handle_list_samples
+from .commands import handle_list_samples, handle_make_pilot
 
 
 def build_parser() -> ArgumentParser:
@@ -30,6 +31,22 @@ def build_parser() -> ArgumentParser:
     # limit number of files
     cmd_ls.add_argument(
         "--limit", type=int, default=None, metavar="LIM", help="Max number of files to list"
+    )
+
+    # make pilot command
+    cmd_pilot = subparsers.add_parser(
+        "make-pilot",
+        help="Creates a deterministic pilot set of image_ids",
+        description=create_pilot_set.__doc__,
+    )
+    cmd_pilot.set_defaults(run=handle_make_pilot)
+    cmd_pilot.add_argument("--db", required=True, help="Path to metadata.db")
+    cmd_pilot.add_argument("--seed", type=int, required=True, help="Random seed")
+    cmd_pilot.add_argument("--n", type=int, required=True, help="Number of image_ids to sample")
+    cmd_pilot.add_argument(
+        "--out",
+        default="data/pilot/pilot_1k_ids.csv",
+        help="Output CSV path (default: data/pilot/pilot_1k_ids.csv)",
     )
 
     return parser

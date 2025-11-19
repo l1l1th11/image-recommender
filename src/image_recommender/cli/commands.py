@@ -1,4 +1,7 @@
+from pathlib import Path
+
 from image_recommender.constants import IMAGE_EXTS, SAMPLES_DIR
+from image_recommender.db.pilot import create_pilot_set
 from image_recommender.util.sampler import list_samples
 
 
@@ -14,3 +17,20 @@ def handle_list_samples(args) -> int:
         print(p.name)
 
     return 0
+
+
+def handle_make_pilot(args) -> int:
+    """
+    Handles the "make-pilot" CLI command.
+    """
+    db_path = Path(args.db)
+    out_path = Path(args.out)
+    n = args.n
+    seed = args.seed
+
+    return create_pilot_set(  # uses create_pilot_set from db.pilot
+        db_path=db_path,
+        n=n,
+        seed=seed,
+        out_path=out_path,
+    )
