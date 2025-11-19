@@ -6,9 +6,12 @@ def hsv_features(img_rgb: np.ndarray) -> np.ndarray:
     """
     Extracts a histogram of the HSV color space of an image.
 
-    Hue: color without brightness
-    Saturation: intensity of the color
-    Value: brightness
+    Input: RGB image.
+    Output: 1D vector of length 432, dtype float32, normalized to sum 1
+
+    Hue: color without brightness (h_bins: 12, range 0-180)
+    Saturation: intensity of the color (s_bins: 6, range 0-256)
+    Value: brightness (v_bins: 6, range 0-256)
 
     Unlike RGB, where lighting changes strongly affect the values,
     HSV provides a more stable representation of the actual color.
