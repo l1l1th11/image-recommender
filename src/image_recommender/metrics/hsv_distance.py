@@ -3,7 +3,10 @@ import numpy as np
 
 def hsv_distance(a: np.ndarray, b: np.ndarray) -> float:
     """
-    Computes the chi-squared distance (relative divergence)between two histograms a and b.
+    Computes the chi-squared distance (relative divergence) between two histograms a and b.
+
+    Input: Histogram-like vectors (ideally normalized, non-negative, same shape).
+
     - Self-distance: If a = b, then χ² = 0.
     - Symmetry: (a - b)^2 / (a + b) = (b - a)^2 / (b + a)
     - No negativity: χ² >= 0
