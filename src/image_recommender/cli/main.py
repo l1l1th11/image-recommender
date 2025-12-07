@@ -1,10 +1,11 @@
+import sys
 from argparse import ArgumentParser
 from collections.abc import Sequence
 
 from image_recommender.db.pilot import create_pilot_set
 from image_recommender.util.logs import setup_basic_logging
 
-from .commands import handle_list_samples, handle_make_pilot
+from .commands import handle_hsv_on_samples, handle_list_samples, handle_make_pilot
 
 
 def build_parser() -> ArgumentParser:
@@ -49,6 +50,22 @@ def build_parser() -> ArgumentParser:
         help="Output CSV path (default: data/pilot/pilot_1k_ids.csv)",
     )
 
+    # hsv on samples command
+    cmd_hsv = subparsers.add_parser(
+        "hsv-on-samples",
+        help="Computes top-k HSV neighbors over samples",
+    )
+    cmd_hsv.set_defaults(run=handle_hsv_on_samples)
+    cmd_hsv.add_argument("--k", type=int, default=3, help="Top-k neighbors")
+    cmd_hsv.add_argument(
+        "--id", type=str, default=None, help="Print top-k for specific image id (stem)"
+    )
+    cmd_hsv.add_argument(
+        "--quiet",
+        action="store_true",
+        help="Suppress error information, only print top-k neighbors and skipped images",
+    )
+
     return parser
 
 
@@ -64,3 +81,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
     # return exit code (0: success, non-zero: error)
     return int(args.run(args))
+
+
+if __name__ == "__main__":  # execute only if run as a script (otherwise importable)
+    sys.exit(
+        main(sys.argv[1:])
+    )  # call main() with command-line arguments and exit with its return code
