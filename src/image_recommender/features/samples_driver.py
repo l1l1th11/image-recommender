@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 
 import numpy as np
@@ -29,15 +30,13 @@ def topk_on_samples(
             feat = hsv_features(img)
             features[path] = feat
         except Exception:  # If image loading fails...
-            print(f"Skipping {path.name}")  # ... print message and skip.
+            logging.getLogger("image_recommender").warning("Skipping %s", path.name)
 
     result: dict[Path, list[tuple[Path, float]]] = {}  # Mapping: Path --> Neighbor Path, Distance
 
     for p1, f1 in features.items():
         distances: list[tuple[Path, float]] = [
-            (p2, hsv_distance(f1, f2))
-            for p2, f2 in features.items()
-            if p1 != p2  # calculate distances
+            (p2, hsv_distance(f1, f2)) for p2, f2 in features.items()
         ]
         topk = sorted(distances, key=lambda x: x[1])[:k]  # sort and get top-k
         result[p1] = topk

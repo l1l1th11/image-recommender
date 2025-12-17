@@ -12,9 +12,13 @@ def test_topk_smoke():
                 paths.append(p)
             except Exception:
                 continue
-    paths = paths[:3]  # use only first 3 valid images for test
+
+    assert len(paths) >= 2, "Need at least two valid sample images for the test."
 
     result = topk_on_samples(paths, k=1)  # get top-1 neighbor
 
     for p, neighbors in result.items():
-        assert p not in [n for n, _ in neighbors]  # Is the image its own neighbor?
+        top_neighbor, dist = neighbors[0]
+
+        assert top_neighbor == p  # Is itself the closest?
+        assert dist < 1e-6  # Is the distance nearly zero?

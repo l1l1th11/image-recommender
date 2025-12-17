@@ -61,8 +61,8 @@ def handle_hsv_on_samples(args) -> int:
         for neighbor, dist in result[target_path]:
             print(f"{neighbor.name}\t{dist:.5f}")
     else:  # If no specific ID is provided...
-        for p, neighbors in result.items():  # ... print all neighbors.
-            neighbor_names = [n.name for n, _ in neighbors]  # extract names
-            print(f"{p.name}: {neighbor_names}")  # display results (for n valid samples n images)
+        for p, neighbors in result.items():
+            formatted = ", ".join(f"{n.name} ({dist:.5f})" for n, dist in neighbors)
+            print(f"{p.name} --> {formatted}")
 
     return 0  # success
