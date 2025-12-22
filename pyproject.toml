@@ -40,7 +40,7 @@ name = "image-recommender"
 version = "0.0.1"
 requires-python = ">=3.12"
 # runtime deps
-dependencies = ["numpy", "pillow", "tqdm", "opencv-python"]
+dependencies = ["numpy", "pillow", "tqdm", "opencv-python", "torch", "torchvision"]
 
 [project.optional-dependencies]
 # test deps
