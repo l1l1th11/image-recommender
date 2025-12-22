@@ -18,11 +18,20 @@ _model_cache = {}  # cache models to avoid reloading
 _embedding_dims = {}
 
 
-def _load_model(model_name: str, pretrained: bool = True, device: str = "cpu") -> torch.nn.Module:
+def _get_default_device() -> str:
+    return "cuda" if torch.cuda.is_available() else "cpu"
+
+
+def _load_model(
+    model_name: str, pretrained: bool = True, device: str | None = None
+) -> torch.nn.Module:
     """
     Loads a ResNet model.
     Caches models for deterministic output.
     """
+    if device is None:
+        device = _get_default_device()
+
     key = (model_name, pretrained, device)  # key for caching
     if key in _model_cache:
         return _model_cache[key]  # avoid reloading of cached models
@@ -64,8 +73,11 @@ def extract_embedding(  # main function to extract embedding from RGB image
     *,
     model_name: str = "resnet18",
     pretrained: bool = True,
-    device: str = "cpu",
+    device: str | None = None,
 ) -> np.ndarray:
+
+    if device is None:
+        device = _get_default_device()
 
     if img_rgb.ndim != 3 or img_rgb.shape[2] != 3:  # image must be RGB (3 channels)
         raise ValueError("Input must be RGB image with shape (H, W, 3)")
@@ -80,3 +92,37 @@ def extract_embedding(  # main function to extract embedding from RGB image
     return (
         y.squeeze().cpu().numpy().astype(np.float32)
     )  # remove batch dimension and convert to NumPy array
+
+
+def extract_embeddings_batch(
+    imgs_rgb: list[np.ndarray],  # list of images
+    *,  # folliwing parameters are keyword-only
+    model_name: str = "resnet18",
+    pretrained: bool = True,
+    device: str | None = None,
+    batch_size: int = 8,
+) -> np.ndarray:
+    """
+    Extracts embeddings for multiple RGB images in batches.
+    """
+    if device is None:
+        device = _get_default_device()
+
+    if not imgs_rgb:  # If there are no images...
+        return np.empty(
+            (0, get_embedding_dim(model_name)), dtype=np.float32
+        )  # ... return an empty array
+
+    model = _load_model(model_name, pretrained=pretrained, device=device)
+    embeddings = []
+
+    for i in range(0, len(imgs_rgb), batch_size):  # iterate over imgaes in batches
+        batch_imgs = imgs_rgb[i : i + batch_size]
+        tensors = [_preprocess(Image.fromarray(img)).unsqueeze(0) for img in batch_imgs]
+        x = torch.cat(tensors, dim=0).to(device)
+        with torch.no_grad():
+            y = model(x)
+        batch_emb = y.view(len(batch_imgs), -1).cpu().numpy()  # flatten and convert to NumPy
+        embeddings.append(batch_emb)
+
+    return np.vstack(embeddings).astype(np.float32)  # stack all batches into a single array
