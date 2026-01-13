@@ -3,6 +3,13 @@ import torch
 import torchvision.models as models
 from PIL import Image
 from torchvision import transforms
+from torchvision.models import (
+    ResNet18_Weights,
+    ResNet34_Weights,
+    ResNet50_Weights,
+    ResNet101_Weights,
+    ResNet152_Weights,
+)
 
 _preprocess = transforms.Compose(
     [
@@ -19,7 +26,16 @@ _embedding_dims = {}
 
 
 def _get_default_device() -> str:
-    return "cuda" if torch.cuda.is_available() else "cpu"
+    return "cpu"  # <-- if necessary, modify to use GPU with "cuda"
+
+
+_weights = {
+    "resnet18": ResNet18_Weights.DEFAULT,
+    "resnet34": ResNet34_Weights.DEFAULT,
+    "resnet50": ResNet50_Weights.DEFAULT,
+    "resnet101": ResNet101_Weights.DEFAULT,
+    "resnet152": ResNet152_Weights.DEFAULT,
+}
 
 
 def _load_model(
@@ -36,19 +52,16 @@ def _load_model(
     if key in _model_cache:
         return _model_cache[key]  # avoid reloading of cached models
 
-    model_choices = {
-        "resnet18": models.resnet18,  # default
-        "resnet34": models.resnet34,
-        "resnet50": models.resnet50,
-        "resnet101": models.resnet101,
-        "resnet152": models.resnet152,
-    }
+    model_cls = models.__dict__[model_name]
 
-    model_cls = model_choices.get(model_name)  # model class --> instantiate model
     if model_cls is None:
         raise ValueError(f"Unsupported model_name: {model_name}")
 
-    model = model_cls(pretrained=pretrained)  # either pretrained or random init
+    if pretrained:
+        model = model_cls(weights=_weights[model_name])
+    else:
+        model = model_cls(weights=None)
+
     model = torch.nn.Sequential(*list(model.children())[:-1])  # all layers without fully-connected
     model.eval()  # inference
     model.to(device)  # either cpu or gpu (cuda)
@@ -75,6 +88,14 @@ def extract_embedding(  # main function to extract embedding from RGB image
     pretrained: bool = True,
     device: str | None = None,
 ) -> np.ndarray:
+    """
+    Extracts an embedding from a single RGB image.
+    Args:
+        - img_rgb: Input image as a NumPy array of shape (H, W, 3), expects uint8 RGB.
+        - model_name: Name of the ResNet model to use.
+        - pretrained: Whether to use pretrained weights.
+        - device: Device to run inference on.
+    """
 
     if device is None:
         device = _get_default_device()
@@ -87,11 +108,9 @@ def extract_embedding(  # main function to extract embedding from RGB image
 
     model = _load_model(model_name, pretrained=pretrained, device=device)  # get model
     with torch.no_grad():  # If inference is without gradient computation...
-        y = model(x)  # ... return embedding in shape of (1, D, 1, 1)
-
-    return (
-        y.squeeze().cpu().numpy().astype(np.float32)
-    )  # remove batch dimension and convert to NumPy array
+        y = model(x)
+        emb = y.view(-1).cpu().numpy().astype(np.float32)
+        return emb
 
 
 def extract_embeddings_batch(
@@ -104,6 +123,12 @@ def extract_embeddings_batch(
 ) -> np.ndarray:
     """
     Extracts embeddings for multiple RGB images in batches.
+    Args:
+        - imgs_rgb: List of RGB images as NumPy arrays of shape (H, W, 3), expects uint8 RGB.
+        - model_name: Name of the ResNet model to use.
+        - pretrained: Whether to use pretrained weights.
+        - device: Device to run inference on.
+        - batch_size: Number of images to process in each batch.
     """
     if device is None:
         device = _get_default_device()
