@@ -13,6 +13,8 @@ from torchvision.models import (
 
 _preprocess = transforms.Compose(
     [
+        transforms.Resize(256),
+        transforms.CenterCrop(224),
         transforms.ToTensor(),
         transforms.Normalize(
             mean=[0.485, 0.456, 0.406],  # these are standard ImageNet means and stds
@@ -26,7 +28,7 @@ _embedding_dims = {}
 
 
 def _get_default_device() -> str:
-    return "cpu"  # <-- if necessary, modify to use GPU with "cuda"
+    return "cpu"
 
 
 _weights = {
@@ -38,19 +40,23 @@ _weights = {
 }
 
 
-def _load_model(
-    model_name: str, pretrained: bool = True, device: str | None = None
-) -> torch.nn.Module:
+def _load_model(model_name: str, pretrained: bool = True, device: str = "cpu") -> torch.nn.Module:
     """
     Loads a ResNet model.
     Caches models for deterministic output.
     """
-    if device is None:
-        device = _get_default_device()
+    if pretrained and model_name not in _weights:
+        raise ValueError(
+            f"pretrained=True, but model_name='{model_name}' has no ResNet weights. "
+            f"Valid options: {list(_weights.keys())}"
+        )
 
     key = (model_name, pretrained, device)  # key for caching
     if key in _model_cache:
         return _model_cache[key]  # avoid reloading of cached models
+
+    if model_name not in models.__dict__:
+        raise ValueError(f"Unsupported model_name: {model_name}")
 
     model_cls = models.__dict__[model_name]
 
@@ -86,7 +92,7 @@ def extract_embedding(  # main function to extract embedding from RGB image
     *,
     model_name: str = "resnet18",
     pretrained: bool = True,
-    device: str | None = None,
+    device: str = "cpu",
 ) -> np.ndarray:
     """
     Extracts an embedding from a single RGB image.
@@ -96,10 +102,6 @@ def extract_embedding(  # main function to extract embedding from RGB image
         - pretrained: Whether to use pretrained weights.
         - device: Device to run inference on.
     """
-
-    if device is None:
-        device = _get_default_device()
-
     if img_rgb.ndim != 3 or img_rgb.shape[2] != 3:  # image must be RGB (3 channels)
         raise ValueError("Input must be RGB image with shape (H, W, 3)")
 
@@ -118,7 +120,7 @@ def extract_embeddings_batch(
     *,  # folliwing parameters are keyword-only
     model_name: str = "resnet18",
     pretrained: bool = True,
-    device: str | None = None,
+    device: str = "cpu",
     batch_size: int = 8,
 ) -> np.ndarray:
     """
@@ -130,9 +132,6 @@ def extract_embeddings_batch(
         - device: Device to run inference on.
         - batch_size: Number of images to process in each batch.
     """
-    if device is None:
-        device = _get_default_device()
-
     if not imgs_rgb:  # If there are no images...
         return np.empty(
             (0, get_embedding_dim(model_name)), dtype=np.float32
