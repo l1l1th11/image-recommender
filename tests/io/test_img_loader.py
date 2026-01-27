@@ -1,9 +1,8 @@
-import logging
 from pathlib import Path
 
 import numpy as np
 import pytest
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
 
 import image_recommender.io.img_loader as mod
 from image_recommender.util.errors import ImageLoadError
@@ -39,22 +38,16 @@ def test_gray_to_rgb(samples_dir):
     assert rgb_array.dtype == np.uint8
 
 
-def test_non_img(samples_dir, caplog):
-    caplog.set_level(logging.ERROR)
+def test_non_img(samples_dir):
     non_img_path = samples_dir / "non_img.txt"
     non_img_path.write_text("test")
     # raise custom error (wraps PIL errors)
-    with pytest.raises(ImageLoadError):
+    with pytest.raises(ImageLoadError) as excinfo:
         mod.load_rgb(non_img_path)
-    # retrieve logs
-    records = [r for r in caplog.records if r.levelname == "ERROR"]
-    # only one log captured
-    assert len(records) == 1
-    # module included
-    rec = records[0]
-    assert str(mod.__name__) == rec.name
     # path included
-    msg = rec.getMessage()  # retrieve log
+    msg = str(excinfo.value)
     assert str(non_img_path) in msg
     # reason included
     assert "unidentified/unsupported image" in msg
+    # original cause included
+    assert isinstance(excinfo.value.__cause__, UnidentifiedImageError)

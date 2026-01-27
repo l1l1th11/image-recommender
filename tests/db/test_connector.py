@@ -95,3 +95,49 @@ def test_count_and_iter_all(tmp_db: str, example_image: dict[str, Any]) -> None:
     ids = list(connector.iter_all_ids(db_path=tmp_db))
 
     assert len(ids) == 5  # Are there five images in the DB (in the list)?
+
+
+# ---------- FULL DB RUN TESTS ------------
+
+
+def test_iter_id_paths(tmp_db: str, example_image: dict[str, Any]) -> None:
+    # add 5 rows to db
+    for i in range(5):
+        img = example_image.copy()
+        img["path"] = f"images/sample_{i}.jpg"  # samples 0-4
+        connector.upsert_image(**img, db_path=tmp_db)
+
+    # check order (by id, ascending)
+    id_paths = list(connector.iter_id_paths(db_path=tmp_db))  # convert to list
+    ids = [id for (id, path) in id_paths]  # extract ids
+    assert ids == sorted(ids)
+
+    # check slicing
+    id_paths_slice = list(connector.iter_id_paths(start=1, stop=3, db_path=tmp_db))
+    assert len(id_paths_slice) == 2
+    paths = [path for (id, path) in id_paths_slice]  # extract paths
+    assert paths == ["images/sample_1.jpg", "images/sample_2.jpg"]
+
+    # check stop = None behavior
+    id_paths_1_to_5 = list(connector.iter_id_paths(start=1, db_path=tmp_db))
+    assert len(id_paths_1_to_5) == 4
+
+    # check start = stop behavior
+    id_path_1 = list(connector.iter_id_paths(start=1, stop=1, db_path=tmp_db))
+    assert len(id_path_1) == 0
+
+    # validate errors get raised
+
+    # start < 0
+    with pytest.raises(ValueError) as excinfo_1:
+        list(connector.iter_id_paths(start=-1, db_path=tmp_db))
+
+    msg = str(excinfo_1.value)
+    assert "start can not be negative" in msg
+
+    # stop < start & not None
+    with pytest.raises(ValueError) as excinfo_2:
+        list(connector.iter_id_paths(start=2, stop=1, db_path=tmp_db))
+
+    msg = str(excinfo_2.value)
+    assert "stop can not be smaller than start" in msg
