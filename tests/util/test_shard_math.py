@@ -1,3 +1,5 @@
+import pytest
+
 from image_recommender.util.shard_math import compute_range
 
 
@@ -39,3 +41,21 @@ def test_shard_math_edge_cases() -> None:
 
     # items not divisible by parts
     _assert_partition_invariants(items=10, parts=4)
+
+
+def test_shard_math_bad_inputs() -> None:
+    # items < 0
+    with pytest.raises(ValueError, match=r">= 0"):
+        compute_range(items=-1, parts=3, idx=2)
+
+    # parts = 0
+    with pytest.raises(ValueError, match=r">= 1"):
+        compute_range(items=10, parts=0, idx=2)
+
+    # idx < 0
+    with pytest.raises(ValueError, match=r"\[0, parts\)"):
+        compute_range(items=10, parts=2, idx=-2)
+
+    # idx = parts
+    with pytest.raises(ValueError, match=r"\[0, parts\)"):
+        compute_range(items=10, parts=2, idx=2)
