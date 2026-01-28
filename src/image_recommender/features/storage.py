@@ -171,3 +171,22 @@ def mark_success(run_dir: Path | str, feature_type: str, shard_id: int) -> None:
     # idempotent create
     if not marker_path.exists():
         marker_path.touch()
+
+
+def list_pending(run_dir: Path | str, feature_type: str, n_shards: int) -> list[int]:
+    # validate inputs
+    if n_shards < 0:
+        raise ValueError("Number of shards must be >= 0.")
+    run_dir = Path(run_dir)
+    if not run_dir.is_dir():
+        raise ValueError(f"{run_dir} is missing, or not a directory.")
+    # pending shards
+    pending_shard_ids = []
+    # compute marker paths
+    for idx in range(n_shards):
+        marker_path = success_marker_path(run_dir=run_dir, feature_type=feature_type, shard_id=idx)
+        # add idx with missing marker
+        if not marker_path.exists():
+            pending_shard_ids.append(idx)
+
+    return pending_shard_ids

@@ -11,6 +11,7 @@ from image_recommender.features.storage import (
     _write_features_npy_atomic,
     _write_ids_npy_atomic,
     _write_meta_json_atomic,
+    list_pending,
     mark_success,
     shard_dir,
     shard_paths,
@@ -180,3 +181,28 @@ def test_idempotent_marker_create(tmp_path: Path) -> None:
     # check success marker exists
     marker_path = success_marker_path(run_dir=tmp_path, feature_type="hsv", shard_id=7)
     assert marker_path.exists()
+
+
+def test_list_pending(tmp_path: Path) -> None:
+    # write 3 shards with success markers
+    for shard_id in range(3):
+        # build shard path
+        test_shard_path = shard_dir(run_dir=tmp_path, feature_type="embedding", shard_id=shard_id)
+        # create shard dir
+        test_shard_path.mkdir(parents=True, exist_ok=True)
+        # mark success
+        mark_success(run_dir=tmp_path, feature_type="embedding", shard_id=shard_id)
+    # collect pending shard ids
+    pending_shard_ids = list_pending(run_dir=tmp_path, feature_type="embedding", n_shards=5)
+    # check expected ids are included
+    assert pending_shard_ids == [3, 4]
+
+
+def test_list_pending_bad_inputs(tmp_path: Path) -> None:
+    # n_shards < 0
+    with pytest.raises(ValueError, match=r">= 0"):
+        list_pending(run_dir=tmp_path, feature_type="embedding", n_shards=-5)
+    # run_dir missing
+    missing = tmp_path / "does_not_exist"
+    with pytest.raises(ValueError, match=r"missing"):
+        list_pending(run_dir=missing, feature_type="hsv", n_shards=8)
