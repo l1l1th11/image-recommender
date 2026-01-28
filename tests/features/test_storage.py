@@ -11,7 +11,11 @@ from image_recommender.features.storage import (
     _write_features_npy_atomic,
     _write_ids_npy_atomic,
     _write_meta_json_atomic,
+    list_pending,
+    mark_success,
+    shard_dir,
     shard_paths,
+    success_marker_path,
     write_shard_atomic,
 )
 
@@ -70,7 +74,7 @@ def test_validate_shard_inputs_raises_on_id_count_mismatch() -> None:
     assert str(exc_info.value) == "The number of features and ids is mismatched."
 
 
-def test_write_meta_json_atomic(tmp_path) -> None:
+def test_write_meta_json_atomic(tmp_path: Path) -> None:
     # get meta path using helper
     tmp_meta_path = shard_paths(run_dir=tmp_path, feature_type="hsv", shard_id=9)[2]
     # create parent dir
@@ -94,7 +98,7 @@ def test_write_meta_json_atomic(tmp_path) -> None:
     assert data == test_metadata
 
 
-def test_write_ids_npy_atomic(tmp_path) -> None:
+def test_write_ids_npy_atomic(tmp_path: Path) -> None:
     # get ids path using helper
     tmp_ids_path = shard_paths(run_dir=tmp_path, feature_type="embedding", shard_id=5)[1]
     # create parent dir
@@ -110,7 +114,7 @@ def test_write_ids_npy_atomic(tmp_path) -> None:
     assert data.tolist() == test_ids
 
 
-def test_write_features_npy_atomic(tmp_path) -> None:
+def test_write_features_npy_atomic(tmp_path: Path) -> None:
     # get features path using helper
     tmp_features_path = shard_paths(run_dir=tmp_path, feature_type="hsv", shard_id=41)[0]
     # create parent dir
@@ -129,7 +133,7 @@ def test_write_features_npy_atomic(tmp_path) -> None:
     assert data.tolist() == test_features.tolist()
 
 
-def test_write_shard_happy_path(tmp_path) -> None:
+def test_write_shard_happy_path(tmp_path: Path) -> None:
     # get artifact paths
     tmp_features_path, tmp_ids_path, tmp_meta_path = shard_paths(
         run_dir=tmp_path, feature_type="embedding", shard_id=50
@@ -164,3 +168,41 @@ def test_write_shard_happy_path(tmp_path) -> None:
     assert np.load(tmp_ids_path).tolist() == test_ids
     assert np.load(tmp_features_path).tolist() == test_features.tolist()
     assert json.loads(tmp_meta_path.read_text("utf-8")) == test_meta
+
+
+def test_idempotent_marker_create(tmp_path: Path) -> None:
+    # build shard path
+    test_shard_path = shard_dir(run_dir=tmp_path, feature_type="hsv", shard_id=7)
+    # create shard dir
+    test_shard_path.mkdir(parents=True, exist_ok=True)
+    # call write success marker twice
+    mark_success(run_dir=tmp_path, feature_type="hsv", shard_id=7)
+    mark_success(run_dir=tmp_path, feature_type="hsv", shard_id=7)
+    # check success marker exists
+    marker_path = success_marker_path(run_dir=tmp_path, feature_type="hsv", shard_id=7)
+    assert marker_path.exists()
+
+
+def test_list_pending(tmp_path: Path) -> None:
+    # write 3 shards with success markers
+    for shard_id in range(3):
+        # build shard path
+        test_shard_path = shard_dir(run_dir=tmp_path, feature_type="embedding", shard_id=shard_id)
+        # create shard dir
+        test_shard_path.mkdir(parents=True, exist_ok=True)
+        # mark success
+        mark_success(run_dir=tmp_path, feature_type="embedding", shard_id=shard_id)
+    # collect pending shard ids
+    pending_shard_ids = list_pending(run_dir=tmp_path, feature_type="embedding", n_shards=5)
+    # check expected ids are included
+    assert pending_shard_ids == [3, 4]
+
+
+def test_list_pending_bad_inputs(tmp_path: Path) -> None:
+    # n_shards < 0
+    with pytest.raises(ValueError, match=r">= 0"):
+        list_pending(run_dir=tmp_path, feature_type="embedding", n_shards=-5)
+    # run_dir missing
+    missing = tmp_path / "does_not_exist"
+    with pytest.raises(ValueError, match=r"missing"):
+        list_pending(run_dir=missing, feature_type="hsv", n_shards=8)

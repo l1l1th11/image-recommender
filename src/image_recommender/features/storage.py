@@ -19,6 +19,15 @@ REQUIRED_META_KEYS = {
 }
 
 
+def shard_dir(run_dir: Path | str, feature_type: str, shard_id: int) -> Path:
+    # convert to path
+    run_dir = Path(run_dir)
+    # build shard directory
+    shard_dir = run_dir / feature_type / f"shard_{shard_id:04d}"  # 4 digit zero padding
+
+    return shard_dir
+
+
 def shard_paths(run_dir: Path | str, feature_type: str, shard_id: int) -> tuple[Path, Path, Path]:
     """
     Return artifact paths for one shard in a run directory.
@@ -32,14 +41,12 @@ def shard_paths(run_dir: Path | str, feature_type: str, shard_id: int) -> tuple[
     Notes:
         See required metadata keys in REQUIRED_META_KEYS.
     """
-    # convert to path
-    run_dir = Path(run_dir)
     # build shard directory
-    shard_dir = run_dir / feature_type / f"shard_{shard_id:04d}"  # 4 digit zero padding
+    shard_path = shard_dir(run_dir=run_dir, feature_type=feature_type, shard_id=shard_id)
     # construct artifact paths
-    features_path = shard_dir / "features.npy"
-    ids_path = shard_dir / "ids.npy"
-    meta_path = shard_dir / "meta.json"
+    features_path = shard_path / "features.npy"
+    ids_path = shard_path / "ids.npy"
+    meta_path = shard_path / "meta.json"
 
     return features_path, ids_path, meta_path
 
@@ -143,3 +150,43 @@ def write_shard_atomic(
     _write_ids_npy_atomic(ids_path=ids_path, ids=ids)
     # write meta
     _write_meta_json_atomic(meta_path=meta_path, meta=meta)
+
+
+def success_marker_path(run_dir: Path | str, feature_type: str, shard_id: int) -> Path:
+    # build shard directory
+    shard_path = shard_dir(run_dir=run_dir, feature_type=feature_type, shard_id=shard_id)
+    # build marker path
+    marker_path = shard_path / "_SUCCESS"
+
+    return marker_path
+
+
+def mark_success(run_dir: Path | str, feature_type: str, shard_id: int) -> None:
+    # build marker path
+    marker_path = success_marker_path(run_dir=run_dir, feature_type=feature_type, shard_id=shard_id)
+    # check shard dir exists
+    shard_path = marker_path.parent
+    if not shard_path.is_dir():
+        raise FileNotFoundError(f"{shard_path} is missing, or not a directory.")
+    # idempotent create
+    if not marker_path.exists():
+        marker_path.touch()
+
+
+def list_pending(run_dir: Path | str, feature_type: str, n_shards: int) -> list[int]:
+    # validate inputs
+    if n_shards < 0:
+        raise ValueError("Number of shards must be >= 0.")
+    run_dir = Path(run_dir)
+    if not run_dir.is_dir():
+        raise ValueError(f"{run_dir} is missing, or not a directory.")
+    # pending shards
+    pending_shard_ids = []
+    # compute marker paths
+    for idx in range(n_shards):
+        marker_path = success_marker_path(run_dir=run_dir, feature_type=feature_type, shard_id=idx)
+        # add idx with missing marker
+        if not marker_path.exists():
+            pending_shard_ids.append(idx)
+
+    return pending_shard_ids
