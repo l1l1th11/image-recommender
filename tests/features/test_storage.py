@@ -7,7 +7,6 @@ import pytest
 from image_recommender.features.storage import (
     REQUIRED_META_KEYS,
     VERSION,
-    _validate_shard_inputs,
     _write_features_npy_atomic,
     _write_ids_npy_atomic,
     _write_meta_json_atomic,
@@ -17,8 +16,9 @@ from image_recommender.features.storage import (
     shard_dir,
     shard_paths,
     success_marker_path,
-    write_shard_atomic,
+    write_validate_shard_atomic,
 )
+from image_recommender.util.shard_validation import validate_shard
 
 
 def test_shard_paths() -> None:
@@ -69,8 +69,13 @@ def test_validate_shard_inputs_raises_on_id_count_mismatch() -> None:
     }
     # check mismatch is caught
     with pytest.raises(ValueError) as exc_info:
-        _validate_shard_inputs(
-            feature_type="hsv", features=test_array, ids=mismatched_ids, meta=metadata_placeholder
+        validate_shard(
+            feature_type="hsv",
+            features=test_array,
+            ids=mismatched_ids,
+            meta=metadata_placeholder,
+            required_keys=REQUIRED_META_KEYS,
+            expected_version=VERSION,
         )
     assert str(exc_info.value) == "The number of features and ids is mismatched."
 
@@ -204,7 +209,7 @@ def _create_shard_success(run_dir: Path) -> None:
         "version": VERSION,
     }
     # write shard
-    write_shard_atomic(
+    write_validate_shard_atomic(
         run_dir=run_dir,
         shard_id=50,
         feature_type="embedding",
@@ -234,7 +239,7 @@ data_missing_artifacts = [
 @pytest.mark.parametrize(
     "artifact_key, error_message", data_missing_artifacts, ids=["features", "ids", "meta"]
 )
-def test_read_shards_missing_artifacts(tmp_path, artifact_key, error_message):
+def test_read_shards_missing_artifacts(tmp_path, artifact_key, error_message) -> None:
     # create shard
     _create_shard_success(tmp_path)
     # get artifact paths
@@ -261,7 +266,7 @@ data_corrupt_artifacts = [("features", "load features in non-mmap"), ("ids", "lo
 @pytest.mark.parametrize(
     "artifact_key, error_message", data_corrupt_artifacts, ids=["features", "ids"]
 )
-def test_read_shards_corrupt_features_ids(tmp_path, artifact_key, error_message):
+def test_read_shards_corrupt_features_ids(tmp_path, artifact_key, error_message) -> None:
     # create shard
     _create_shard_success(run_dir=tmp_path)
     # get artifact paths
@@ -281,7 +286,7 @@ def test_read_shards_corrupt_features_ids(tmp_path, artifact_key, error_message)
         read_validate_shard(run_dir=tmp_path, feature_type="embedding", shard_id=50)
 
 
-def test_read_shards_corrupt_meta(tmp_path):
+def test_read_shards_corrupt_meta(tmp_path) -> None:
     # create shard
     _create_shard_success(run_dir=tmp_path)
     # get meta path
@@ -293,7 +298,7 @@ def test_read_shards_corrupt_meta(tmp_path):
         read_validate_shard(run_dir=tmp_path, feature_type="embedding", shard_id=50)
 
 
-def test_read_shard_mmap(tmp_path):
+def test_read_shard_mmap(tmp_path) -> None:
     # create shard
     _create_shard_success(run_dir=tmp_path)
     # load shard in mmap mode
@@ -302,3 +307,35 @@ def test_read_shard_mmap(tmp_path):
     )
     # double check type
     assert isinstance(features_array, np.memmap)
+
+
+def test_meta_keys_mismatch(tmp_path) -> None:
+    # create shard
+    _create_shard_success(run_dir=tmp_path)
+    # get meta path
+    _, _, meta_path = shard_paths(run_dir=tmp_path, feature_type="embedding", shard_id=50)
+    # load metadata
+    meta_dict = json.loads(meta_path.read_text(encoding="utf-8"))
+    # remove one meta key
+    meta_dict.pop("version")
+    # persist changes
+    meta_path.write_text(json.dumps(meta_dict), encoding="utf-8")
+    # attempt to load shard and check error message
+    with pytest.raises(ValueError, match="meta keys"):
+        read_validate_shard(run_dir=tmp_path, feature_type="embedding", shard_id=50)
+
+
+def test_validation_mismatch(tmp_path) -> None:
+    # create shard
+    _create_shard_success(run_dir=tmp_path)
+    # get meta path
+    _, _, meta_path = shard_paths(run_dir=tmp_path, feature_type="embedding", shard_id=50)
+    # load metadata
+    meta_dict = json.loads(meta_path.read_text(encoding="utf-8"))
+    # change meta dimension value
+    meta_dict["feature_dim"] = 1
+    # persist changes
+    meta_path.write_text((json.dumps(meta_dict)), encoding="utf-8")
+    # attempt to load shard and check error message
+    with pytest.raises(ValueError, match="feature dimensions"):
+        read_validate_shard(run_dir=tmp_path, feature_type="embedding", shard_id=50)

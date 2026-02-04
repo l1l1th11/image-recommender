@@ -6,6 +6,7 @@ from typing import BinaryIO
 import numpy as np
 
 from image_recommender.util.fsatomic import write_tmp_then_rename
+from image_recommender.util.shard_validation import validate_shard
 
 VERSION = 1
 
@@ -49,36 +50,6 @@ def shard_paths(run_dir: Path | str, feature_type: str, shard_id: int) -> tuple[
     meta_path = shard_path / "meta.json"
 
     return features_path, ids_path, meta_path
-
-
-def _validate_shard_inputs(
-    feature_type: str, features: np.ndarray, ids: Sequence[int], meta: dict[str, object]
-) -> None:
-    # check features dimensions
-    if features.ndim != 2:
-        raise ValueError("Feature array has wrong dimensions.")
-
-    # check length matches
-    if len(ids) != features.shape[0]:
-        raise ValueError("The number of features and ids is mismatched.")
-
-    # check meta keys
-    if set(meta.keys()) != REQUIRED_META_KEYS:
-        raise ValueError("The meta keys are incorrect.")
-
-    # check meta version
-    if meta["version"] != VERSION:
-        raise ValueError("Meta version mismatch.")
-
-    # check consistency with data
-    if meta["feature_dim"] != features.shape[1]:
-        raise ValueError("Metadata and data feature dimensions are mismatched.")
-    if meta["feature_dtype"] != str(features.dtype):
-        raise ValueError("Metadata and data type are mismatched.")
-    if meta["shard_size"] != features.shape[0]:
-        raise ValueError("Metadata and data size are mismatched.")
-    if meta["feature_type"] != feature_type:
-        raise ValueError("Metadata and data feature type are mismatched.")
 
 
 def _write_meta_json_atomic(meta_path: Path, meta: dict[str, object]) -> None:
@@ -128,7 +99,7 @@ def _write_features_npy_atomic(features_path: Path, features: np.ndarray) -> Non
     write_tmp_then_rename(final=features_path, write_fn=write_features)
 
 
-def write_shard_atomic(
+def write_validate_shard_atomic(
     run_dir: Path,
     shard_id: int,
     feature_type: str,
@@ -137,7 +108,14 @@ def write_shard_atomic(
     meta: dict[str, object],
 ) -> None:
     # validate
-    _validate_shard_inputs(feature_type=feature_type, features=features, ids=ids, meta=meta)
+    validate_shard(
+        feature_type=feature_type,
+        features=features,
+        ids=ids,
+        meta=meta,
+        required_keys=REQUIRED_META_KEYS,
+        expected_version=VERSION,
+    )
     # create artifact paths
     features_path, ids_path, meta_path = shard_paths(
         run_dir=run_dir, feature_type=feature_type, shard_id=shard_id
@@ -240,8 +218,21 @@ def read_validate_shard(
     # load metadata
     try:
         text = meta_path.read_text(encoding="utf-8")
-        json.loads(text)
+        meta_dict = json.loads(text)
     except Exception as e:
         raise ValueError(f"Failed to load metadata: {e}") from e
+    # check meta is dict
+    if not isinstance(meta_dict, dict):
+        raise ValueError("Metadata is not a dictionary.")
+
+    # validate
+    validate_shard(
+        feature_type=feature_type,
+        features=features_array,
+        ids=ids_list,
+        meta=meta_dict,
+        required_keys=REQUIRED_META_KEYS,
+        expected_version=VERSION,
+    )
 
     return features_array, ids_list
