@@ -1,4 +1,5 @@
 import json
+from collections.abc import Sequence
 from pathlib import Path
 
 import numpy as np
@@ -194,7 +195,7 @@ def test_list_pending_bad_inputs(tmp_path: Path) -> None:
         list_pending(run_dir=missing, feature_type="hsv", n_shards=8)
 
 
-def _create_shard_success(run_dir: Path) -> None:
+def _create_shard_success(run_dir: Path) -> tuple[np.ndarray, Sequence[int], dict[str, object]]:
     # create features
     test_features = np.array([[1, 2], [3, 4]], dtype=np.float32)
     # create ids
@@ -339,3 +340,17 @@ def test_validation_mismatch(tmp_path) -> None:
     # attempt to load shard and check error message
     with pytest.raises(ValueError, match="feature dimensions"):
         read_validate_shard(run_dir=tmp_path, feature_type="embedding", shard_id=50)
+
+
+def test_read_valid_shard(tmp_path) -> None:
+    # create shard
+    test_features, test_ids, _ = _create_shard_success(run_dir=tmp_path)
+    # load shard
+    features_array, ids_list = read_validate_shard(
+        run_dir=tmp_path, feature_type="embedding", shard_id=50
+    )
+    # compare created and loaded shard
+    assert test_features.shape == features_array.shape
+    assert test_features.dtype == features_array.dtype
+    np.testing.assert_array_equal(features_array, test_features)
+    assert test_ids == ids_list
