@@ -190,3 +190,58 @@ def list_pending(run_dir: Path | str, feature_type: str, n_shards: int) -> list[
             pending_shard_ids.append(idx)
 
     return pending_shard_ids
+
+
+def read_validate_shard(
+    run_dir: Path | str, feature_type: str, shard_id: int, mmap: bool = False
+) -> tuple[np.ndarray | np.memmap, list[int]]:
+    # check shard_id is not negative
+    if shard_id < 0:
+        raise ValueError("Shard id must be >= 0.")
+    # check success marker exists
+    marker_path = success_marker_path(run_dir=run_dir, feature_type=feature_type, shard_id=shard_id)
+    if not marker_path.exists():
+        raise ValueError(f"Shard not completed, missing success marker at: {marker_path}")
+    # check artifact file paths exist
+    features_path, ids_path, meta_path = shard_paths(
+        run_dir=run_dir, feature_type=feature_type, shard_id=shard_id
+    )
+    if not features_path.exists():
+        raise ValueError(f"Features at {features_path} for this shard are missing.")
+    if not ids_path.exists():
+        raise ValueError(f"Ids at {ids_path} for this shard are missing.")
+    if not meta_path.exists():
+        raise ValueError(f"Metadata at {meta_path} for this shard is missing.")
+
+    # load features
+    if mmap:
+        try:
+            # load as memory mapped array
+            features_array = np.load(features_path, mmap_mode="r")
+        except Exception as e:
+            raise ValueError(f"Failed to load features in mmap mode: {e}") from e
+        # check type
+        if not isinstance(features_array, np.memmap):
+            raise ValueError("Features is not mmap backed.")
+    else:
+        try:
+            # load as normal array
+            features_array = np.load(features_path)
+        except Exception as e:
+            raise ValueError(f"Failed to load features in non-mmap mode: {e}") from e
+
+    # load ids
+    try:
+        ids_array = np.load(ids_path)
+        ids_list = [int(x) for x in ids_array.tolist()]
+    except Exception as e:
+        raise ValueError(f"Failed to load ids: {e}") from e
+
+    # load metadata
+    try:
+        text = meta_path.read_text(encoding="utf-8")
+        json.loads(text)
+    except Exception as e:
+        raise ValueError(f"Failed to load metadata: {e}") from e
+
+    return features_array, ids_list

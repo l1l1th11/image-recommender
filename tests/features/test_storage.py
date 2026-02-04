@@ -13,6 +13,7 @@ from image_recommender.features.storage import (
     _write_meta_json_atomic,
     list_pending,
     mark_success,
+    read_validate_shard,
     shard_dir,
     shard_paths,
     success_marker_path,
@@ -133,33 +134,13 @@ def test_write_features_npy_atomic(tmp_path: Path) -> None:
     assert data.tolist() == test_features.tolist()
 
 
-def test_write_shard_happy_path(tmp_path: Path) -> None:
+def test_write_shard_correct_artifacts(tmp_path: Path) -> None:
     # get artifact paths
     tmp_features_path, tmp_ids_path, tmp_meta_path = shard_paths(
         run_dir=tmp_path, feature_type="embedding", shard_id=50
     )
-    # create features
-    test_features = np.array([[1, 2], [3, 4]], dtype=np.float32)
-    # create ids
-    test_ids = [1, 3]
-    # create meta
-    test_meta = {
-        "feature_type": "embedding",
-        "feature_dim": 2,
-        "feature_dtype": "float32",
-        "shard_size": 2,
-        "created_at": "2026-01-12T00:00:00Z",
-        "version": VERSION,
-    }
-    # write shard
-    write_shard_atomic(
-        run_dir=tmp_path,
-        shard_id=50,
-        feature_type="embedding",
-        features=test_features,
-        ids=test_ids,
-        meta=test_meta,
-    )
+    # create shard
+    test_features, test_ids, test_meta = _create_shard_success(tmp_path)
     # check artifact paths
     assert tmp_features_path.exists()
     assert tmp_ids_path.exists()
@@ -206,3 +187,118 @@ def test_list_pending_bad_inputs(tmp_path: Path) -> None:
     missing = tmp_path / "does_not_exist"
     with pytest.raises(ValueError, match=r"missing"):
         list_pending(run_dir=missing, feature_type="hsv", n_shards=8)
+
+
+def _create_shard_success(run_dir: Path) -> None:
+    # create features
+    test_features = np.array([[1, 2], [3, 4]], dtype=np.float32)
+    # create ids
+    test_ids = [1, 3]
+    # create meta
+    test_meta = {
+        "feature_type": "embedding",
+        "feature_dim": 2,
+        "feature_dtype": "float32",
+        "shard_size": 2,
+        "created_at": "2026-01-12T00:00:00Z",
+        "version": VERSION,
+    }
+    # write shard
+    write_shard_atomic(
+        run_dir=run_dir,
+        shard_id=50,
+        feature_type="embedding",
+        features=test_features,
+        ids=test_ids,
+        meta=test_meta,
+    )
+    # write success marker
+    mark_success(run_dir=run_dir, feature_type="embedding", shard_id=50)
+
+    return test_features, test_ids, test_meta
+
+
+def test_read_incomplete_shard(tmp_path) -> None:
+    # try to load non existent shard
+    with pytest.raises(ValueError, match=r"missing success marker"):
+        read_validate_shard(run_dir=tmp_path, feature_type="hsv", shard_id=7)
+
+
+data_missing_artifacts = [
+    ("features", r"Features at .*features\.npy"),
+    ("ids", r"Ids at .*ids\.npy"),
+    ("meta", r"Metadata at .*meta\.json"),
+]
+
+
+@pytest.mark.parametrize(
+    "artifact_key, error_message", data_missing_artifacts, ids=["features", "ids", "meta"]
+)
+def test_read_shards_missing_artifacts(tmp_path, artifact_key, error_message):
+    # create shard
+    _create_shard_success(tmp_path)
+    # get artifact paths
+    features_path, ids_path, meta_path = shard_paths(
+        run_dir=tmp_path, feature_type="embedding", shard_id=50
+    )
+    # assign correct artifact path
+    if artifact_key == "features":
+        artifact_path = features_path
+    elif artifact_key == "ids":
+        artifact_path = ids_path
+    else:
+        artifact_path = meta_path
+    # delete artifact
+    artifact_path.unlink()
+    # attempt to load shard and check error message
+    with pytest.raises(ValueError, match=error_message):
+        read_validate_shard(run_dir=tmp_path, feature_type="embedding", shard_id=50)
+
+
+data_corrupt_artifacts = [("features", "load features in non-mmap"), ("ids", "load ids")]
+
+
+@pytest.mark.parametrize(
+    "artifact_key, error_message", data_corrupt_artifacts, ids=["features", "ids"]
+)
+def test_read_shards_corrupt_features_ids(tmp_path, artifact_key, error_message):
+    # create shard
+    _create_shard_success(run_dir=tmp_path)
+    # get artifact paths
+    features_path, ids_path, _ = shard_paths(
+        run_dir=tmp_path, feature_type="embedding", shard_id=50
+    )
+    # assign correct artifact path
+    if artifact_key == "features":
+        artifact_path = features_path
+    else:
+        artifact_path = ids_path
+    # corrupt artifact
+    data = artifact_path.read_bytes()
+    artifact_path.write_bytes(data[:10])
+    # attempt to load shard and check error message
+    with pytest.raises(ValueError, match=error_message):
+        read_validate_shard(run_dir=tmp_path, feature_type="embedding", shard_id=50)
+
+
+def test_read_shards_corrupt_meta(tmp_path):
+    # create shard
+    _create_shard_success(run_dir=tmp_path)
+    # get meta path
+    _, _, meta_path = shard_paths(run_dir=tmp_path, feature_type="embedding", shard_id=50)
+    # corrupt meta
+    meta_path.write_text("{not json", encoding="utf-8")
+    # attempt to load shard and check error message
+    with pytest.raises(ValueError, match="load metadata"):
+        read_validate_shard(run_dir=tmp_path, feature_type="embedding", shard_id=50)
+
+
+def test_read_shard_mmap(tmp_path):
+    # create shard
+    _create_shard_success(run_dir=tmp_path)
+    # load shard in mmap mode
+    features_array, _ = read_validate_shard(
+        run_dir=tmp_path, feature_type="embedding", shard_id=50, mmap=True
+    )
+    # double check type
+    assert isinstance(features_array, np.memmap)
