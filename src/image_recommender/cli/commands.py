@@ -4,6 +4,7 @@ from pathlib import Path
 from image_recommender.config import SAMPLES_DIR
 from image_recommender.constants import IMAGE_EXTS
 from image_recommender.db.pilot import create_pilot_set
+from image_recommender.features.extraction_pipeline import run_extraction
 from image_recommender.features.samples_driver import topk_on_samples
 from image_recommender.util.sampler import list_samples
 
@@ -73,4 +74,34 @@ def handle_extract_features(args) -> int:
     """
     Handles the "extract" CLI command.
     """
-    return 0  # success
+    feature_type = args.feature_type
+    input_mode = args.input_mode
+    run_dir = Path(args.run_dir)
+    shard_start = args.shard_start
+    shard_stop = args.shard_stop
+    pilot_path = Path(args.pilot_path)
+    db_path = Path(args.db_path)
+    shard_size = args.shard_size
+    policy = args.policy
+
+    # call pipeline
+    try:
+        run_extraction(
+            feature_type=feature_type,
+            input_mode=input_mode,
+            run_dir=run_dir,
+            shard_start=shard_start,
+            shard_stop=shard_stop,
+            pilot_path=pilot_path,
+            db_path=db_path,
+            shard_size=shard_size,
+            policy=policy,
+        )
+
+        return 0  # success
+
+    # log exception
+    except Exception:
+        logging.error("Extraction failed", exc_info=True)
+
+        return 1  # failure
