@@ -67,3 +67,10 @@ def handle_hsv_on_samples(args) -> int:
             print(f"{p.name} --> {formatted}")
 
     return 0  # success
+
+
+def handle_extract_features(args) -> int:
+    """
+    Handles the "extract" CLI command.
+    """
+    return 0  # success

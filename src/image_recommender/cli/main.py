@@ -2,10 +2,17 @@ import sys
 from argparse import ArgumentParser
 from collections.abc import Sequence
 
+from image_recommender.config import DB_PATH, PILOT_IDS_CSV
+from image_recommender.constants import SUPPORTED_FEATURES
 from image_recommender.db.pilot import create_pilot_set
 from image_recommender.util.logs import setup_basic_logging
 
-from .commands import handle_hsv_on_samples, handle_list_samples, handle_make_pilot
+from .commands import (
+    handle_extract_features,
+    handle_hsv_on_samples,
+    handle_list_samples,
+    handle_make_pilot,
+)
 
 
 def build_parser() -> ArgumentParser:
@@ -41,12 +48,14 @@ def build_parser() -> ArgumentParser:
         description=create_pilot_set.__doc__,
     )
     cmd_pilot.set_defaults(run=handle_make_pilot)
-    cmd_pilot.add_argument("--db", required=True, help="Path to metadata.db")
+    cmd_pilot.add_argument(
+        "--db", default=DB_PATH, help="Path to database (default: data/metadata.db)"
+    )
     cmd_pilot.add_argument("--seed", type=int, required=True, help="Random seed")
     cmd_pilot.add_argument("--n", type=int, required=True, help="Number of image_ids to sample")
     cmd_pilot.add_argument(
         "--out",
-        default="data/pilot/pilot_1k_ids.csv",
+        default=PILOT_IDS_CSV,
         help="Output CSV path (default: data/pilot/pilot_1k_ids.csv)",
     )
 
@@ -64,6 +73,61 @@ def build_parser() -> ArgumentParser:
         "--quiet",
         action="store_true",
         help="Suppress error information, only print top-k neighbors and skipped images",
+    )
+
+    # extraction pipeline command
+    cmd_extract = subparsers.add_parser(
+        "extract",
+        help="Run feature extraction pipeline",
+        description="Extract specified features for pilot or DB and persist as shards",
+    )
+    cmd_extract.set_defaults(run=handle_extract_features)
+    cmd_extract.add_argument(
+        "--feature-type",
+        type=str,
+        required=True,
+        choices=SUPPORTED_FEATURES,
+        help=f"Available types: {', '.join(SUPPORTED_FEATURES)}",
+    )
+    cmd_extract.add_argument(
+        "--input-mode",
+        type=str,
+        required=True,
+        choices=("pilot", "db"),
+        help="Available modes: pilot, db",
+    )
+    cmd_extract.add_argument(
+        "--run-dir",
+        type=str,
+        required=True,
+        help="Directory under which extracted features will be saved",
+    )
+    cmd_extract.add_argument(
+        "--shard-start",
+        type=int,
+        help="Inclusive start for shard extraction range. Ex.: 3 would start from shard 0003",
+    )
+    cmd_extract.add_argument(
+        "--shard-stop",
+        type=int,
+        help="Exclusive stop for shard extraction range. Ex.: 3 would stop at shard 0002",
+    )
+    cmd_extract.add_argument(
+        "--pilot-path",
+        type=str,
+        default=PILOT_IDS_CSV,
+        help="Path to CSV pilot (default: data/pilot/pilot_1k_ids.csv)",
+    )
+    cmd_extract.add_argument(
+        "--db-path", type=str, default=DB_PATH, help="Path to database (default: data/metadata.db)"
+    )
+    cmd_extract.add_argument("--shard-size", type=int, default=None)
+    cmd_extract.add_argument(
+        "--policy",
+        type=str,
+        default="skip_and_log",
+        choices=("skip_and_log", "raise"),
+        help="Error policy which will be passed to iterator. Available modes: skip_and_log, raise",
     )
 
     return parser
