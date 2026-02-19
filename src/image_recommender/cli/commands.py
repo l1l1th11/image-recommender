@@ -1,7 +1,8 @@
 import logging
 from pathlib import Path
 
-from image_recommender.constants import IMAGE_EXTS, SAMPLES_DIR
+from image_recommender.config import SAMPLES_DIR
+from image_recommender.constants import IMAGE_EXTS
 from image_recommender.db.pilot import create_pilot_set
 from image_recommender.features.samples_driver import topk_on_samples
 from image_recommender.util.sampler import list_samples

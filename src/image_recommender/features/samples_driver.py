@@ -17,7 +17,8 @@ def topk_on_samples(
     Skips any images that cannot be loaded.
     """
     if paths is None:
-        from image_recommender.constants import IMAGE_EXTS, SAMPLES_DIR
+        from image_recommender.config import SAMPLES_DIR
+        from image_recommender.constants import IMAGE_EXTS
 
         paths = list_samples(SAMPLES_DIR, extset=IMAGE_EXTS)
 

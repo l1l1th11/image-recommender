@@ -3,7 +3,7 @@ from pathlib import Path
 
 import numpy as np
 
-from image_recommender.constants import PILOT_IDS_CSV
+from image_recommender.config import PILOT_IDS_CSV
 from image_recommender.db.connector import get_path_by_id, iter_id_paths
 from image_recommender.io.img_loader import load_rgb
 from image_recommender.util.errors import ImageLoadError
