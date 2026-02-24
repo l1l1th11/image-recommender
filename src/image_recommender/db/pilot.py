@@ -1,6 +1,7 @@
 import random
 from pathlib import Path
 
+from image_recommender.config import PILOT_IDS_CSV
 from image_recommender.db import connector
 
 
@@ -56,3 +57,24 @@ def create_pilot_set(db_path: Path, n: int, seed: int, out_path: Path) -> int:
 
     print(f"Wrote {len(selected)} IDs to {out_path}")
     return 0  # Success
+
+
+def load_ids_pilot(pilot_path: str | Path = PILOT_IDS_CSV) -> list[int]:
+    # read ids from csv
+    with pilot_path.open("r", encoding="utf-8") as f:
+
+        image_ids = []
+
+        for line in f:
+            # remove trailing spaces
+            stripped_line = line.strip()
+            # remove empty lines
+            if not stripped_line:
+                continue
+            # convert to int
+            image_id = int(stripped_line)
+
+            # add ids to list
+            image_ids.append(image_id)
+
+    return image_ids

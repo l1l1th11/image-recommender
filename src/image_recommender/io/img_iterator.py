@@ -5,6 +5,7 @@ import numpy as np
 
 from image_recommender.config import PILOT_IDS_CSV
 from image_recommender.db.connector import get_path_by_id, iter_id_paths
+from image_recommender.db.pilot import load_ids_pilot
 from image_recommender.io.img_loader import load_rgb
 from image_recommender.util.errors import ImageLoadError
 from image_recommender.util.logs import get_logger
@@ -78,28 +79,13 @@ def iter_ids_pilot(
     if (stop is not None) and (stop < start):
         raise ValueError("stop can not be smaller than start")
 
-    # read ids from csv
-    with pilot_path.open("r", encoding="utf-8") as f:
+    # load ids list
+    image_ids = load_ids_pilot(pilot_path=pilot_path)
 
-        image_ids = []
+    # apply slicing
+    image_ids = image_ids[start:stop]
 
-        for line in f:
-            # remove trailing spaces
-            stripped_line = line.strip()
-            # remove empty lines
-            if not stripped_line:
-                continue
-            # convert to int
-            image_id = int(stripped_line)
-
-            # add ids to list
-            image_ids.append(image_id)
-
-        # apply slicing
-        image_ids = image_ids[start:stop]
-
-        for image_id in image_ids:
-            yield image_id
+    yield from image_ids
 
 
 def iter_id_images_from_pilot(

@@ -72,6 +72,17 @@ def upsert_image(
 # ---------- READ ----------
 
 
+def count_images(db_path: str | None = None) -> int:
+    """
+    Get total number of images in the db.
+    """
+    with get_conn(db_path=db_path) as conn:
+        cur = conn.execute("SELECT COUNT(*) FROM images")
+        row = cur.fetchone()  # returns tuple
+        assert row is not None
+        return int(row[0])
+
+
 def get_by_id(image_id: int, db_path: str | None = None) -> sqlite3.Row | None:
     """
     Retrieves an image by its ID.
