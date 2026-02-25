@@ -1,5 +1,8 @@
+from collections.abc import Iterator
 from math import ceil
 from pathlib import Path
+
+import numpy as np
 
 from image_recommender.config import DEFAULT_FULL_SHARD_SIZE, DEFAULT_PILOT_SHARD_SIZE
 from image_recommender.constants import SUPPORTED_FEATURES
@@ -42,14 +45,6 @@ def run_extraction(
             shard_size = DEFAULT_PILOT_SHARD_SIZE
         else:
             shard_size = DEFAULT_FULL_SHARD_SIZE
-
-    # select iterator
-    if input_mode == "pilot":
-        iterator = iter_id_images_from_pilot(pilot_path=pilot_path, policy=policy)
-    else:
-        iterator = iter_id_images_from_db(db_path=db_path, policy=policy)
-
-    _ = iterator
 
     # get number of total items
     if input_mode == "pilot":
@@ -117,10 +112,36 @@ def run_extraction(
             act_shard_size,
         )
 
+        # call iterator
+        for image_id, img_array in iterator_wrapper(
+            input_mode=input_mode,
+            start=img_start,
+            stop=img_stop,
+            pilot_path=pilot_path,
+            db_path=db_path,
+            policy=policy,
+        ):
+            _ = image_id
+            _ = img_array
+
     # log summary
     log.info("Feature: %s", feature_type)
     log.info("Mode: %s", input_mode)
     log.info("Shard size: %d", shard_size)
     log.info("Shard range: %s - %s", shard_start, shard_stop)
+
+    return
+
+
+def iterator_wrapper(
+    input_mode: str, start: int, stop: int, pilot_path: Path, db_path: Path, policy: str
+) -> Iterator[tuple[int, np.ndarray]]:
+    # select iterator
+    if input_mode == "pilot":
+        iter_id_images_from_pilot(
+            start=start, stop=stop, pilot_path=pilot_path, db_path=db_path, policy=policy
+        )
+    else:
+        iter_id_images_from_db(start=start, stop=stop, db_path=db_path, policy=policy)
 
     return
