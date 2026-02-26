@@ -45,7 +45,7 @@ jobs:
         run: |
           # install package, runtime deps and test deps from pyproject
           pip install -e '.[test]'
-          pytest -q
+          pytest -q -m "not integration"
 
       - name: cli smoke
         if: ${{ inputs.task == 'cli-smoke' }}

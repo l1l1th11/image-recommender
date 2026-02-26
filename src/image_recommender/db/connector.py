@@ -83,6 +83,16 @@ def count_images(db_path: str | None = None) -> int:
         return int(row[0])
 
 
+def get_any_image_path(db_path: str | None = None) -> str | None:
+    """
+    Get any one images path.
+    """
+    with get_conn(db_path=db_path) as conn:
+        cur = conn.execute("SELECT path FROM images LIMIT 1")
+        row = cur.fetchone()
+        return row["path"] if row else None
+
+
 def get_by_id(image_id: int, db_path: str | None = None) -> sqlite3.Row | None:
     """
     Retrieves an image by its ID.
