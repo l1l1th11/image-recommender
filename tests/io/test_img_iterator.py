@@ -10,7 +10,7 @@ import pytest
 from PIL import Image
 
 import image_recommender.io.img_iterator as mod
-from image_recommender.constants import SAMPLES_DIR
+from image_recommender.config import SAMPLES_DIR
 from image_recommender.db.connector import init_db, upsert_image
 from image_recommender.util.errors import ImageLoadError
 from image_recommender.util.sampler import list_samples
