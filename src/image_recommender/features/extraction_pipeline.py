@@ -1,3 +1,4 @@
+import datetime
 from collections.abc import Iterator
 from math import ceil
 from pathlib import Path
@@ -8,7 +9,13 @@ from image_recommender.config import DEFAULT_FULL_SHARD_SIZE, DEFAULT_PILOT_SHAR
 from image_recommender.constants import SUPPORTED_FEATURES
 from image_recommender.db.connector import count_images
 from image_recommender.db.pilot import load_ids_pilot
-from image_recommender.features.storage import success_marker_path
+from image_recommender.features.hsv import hsv_features
+from image_recommender.features.storage import (
+    VERSION,
+    mark_success,
+    success_marker_path,
+    write_validate_shard_atomic,
+)
 from image_recommender.io.img_iterator import (
     iter_id_images_from_db,
     iter_id_images_from_pilot,
@@ -84,7 +91,7 @@ def run_extraction(
     if shard_start >= shard_stop:
         raise ValueError("No shard to process. Shard start must be smaller shard stop")
 
-    # extraction loop skeleton
+    # extraction loop
     for shard_idx in range(shard_start, shard_stop):
 
         # calculate image range
@@ -99,18 +106,23 @@ def run_extraction(
             log.info("shard_%04d already completed, skipping", shard_idx)
             continue
 
-        # calculate actual shard size
-        act_shard_size = img_stop - img_start
+        # calculate expected shard size
+        exp_shard_size = img_stop - img_start
 
         # log summary
         log.info(
-            "Extracting shard_%04d of %d total shards, image range: [%d - %d), image count: %d",
+            "Extracting shard_%04d (%d of %d total shards), image range: [%d - %d), image count: %d",
             shard_idx,
+            (shard_idx + 1),
             total_shards,
             img_start,
             img_stop,
-            act_shard_size,
+            exp_shard_size,
         )
+
+        # store features & ids
+        features = []
+        ids = []
 
         # call iterator
         for image_id, img_array in iterator_wrapper(
@@ -121,14 +133,55 @@ def run_extraction(
             db_path=db_path,
             policy=policy,
         ):
-            _ = image_id
-            _ = img_array
+            # extract feature and append
+            feature = extraction_wrapper(feature_type=feature_type, img_array=img_array)
+            features.append(feature)
+
+            # append id
+            ids.append(image_id)
+
+        # get count of successfully extracted images
+        actual_count = len(ids)
+
+        # skip writing shard if no features were extracted
+        if actual_count == 0:
+            log.warning("No features were extracted for shard_%04d, skipping writing", shard_idx)
+            continue
+
+        # convert to array
+        features = np.asarray(features)
+
+        # create timestamp
+        timestamp = datetime.datetime.now(datetime.UTC).isoformat()
+
+        # create meta dict
+        meta = {
+            "feature_type": feature_type,
+            "feature_dim": features.shape[1],
+            "feature_dtype": str(features.dtype),
+            "shard_size": actual_count,
+            "created_at": timestamp,
+            "version": VERSION,
+        }
+
+        # write shard
+        write_validate_shard_atomic(
+            run_dir=run_dir,
+            shard_id=shard_idx,
+            feature_type=feature_type,
+            features=features,
+            ids=ids,
+            meta=meta,
+        )
+
+        # create success marker
+        mark_success(run_dir=run_dir, feature_type=feature_type, shard_id=shard_idx)
 
     # log summary
     log.info("Feature: %s", feature_type)
     log.info("Mode: %s", input_mode)
     log.info("Shard size: %d", shard_size)
-    log.info("Shard range: %s - %s", shard_start, shard_stop)
+    log.info("Shard range: [%s - %s)", shard_start, shard_stop)
 
     return
 
@@ -138,10 +191,14 @@ def iterator_wrapper(
 ) -> Iterator[tuple[int, np.ndarray]]:
     # select iterator
     if input_mode == "pilot":
-        iter_id_images_from_pilot(
+        return iter_id_images_from_pilot(
             start=start, stop=stop, pilot_path=pilot_path, db_path=db_path, policy=policy
         )
     else:
-        iter_id_images_from_db(start=start, stop=stop, db_path=db_path, policy=policy)
+        return iter_id_images_from_db(start=start, stop=stop, db_path=db_path, policy=policy)
 
-    return
+
+def extraction_wrapper(feature_type: str, img_array: np.ndarray) -> np.ndarray:
+    # select feature extraction function
+    if feature_type == "hsv":
+        return hsv_features(img_rgb=img_array)
