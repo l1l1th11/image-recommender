@@ -67,6 +67,7 @@ def cosine_distance_to_many(q: np.ndarray, X: np.ndarray) -> np.ndarray:
 
     return 1.0 - sims  # Similarity ==> Distance
 
+
 # 1 - 0 = 1 ==> Orthogonal
 # 1 - 1 = 0 ==> Identical
 # 1 - (-1) = 2 ==> Opposite
