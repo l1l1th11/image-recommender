@@ -1,5 +1,5 @@
 from image_recommender.config import SAMPLES_DIR
-from image_recommender.features.samples_driver import topk_on_samples
+from image_recommender.features.samples_driver_hsv import topk_on_samples
 from image_recommender.io.img_loader import load_rgb
 
 
