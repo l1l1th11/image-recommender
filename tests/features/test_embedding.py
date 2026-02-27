@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 
 from image_recommender.features.embedding import (
+    _model_cache,
     extract_embedding,
     extract_embeddings_batch,
     get_embedding_dim,
@@ -46,9 +47,13 @@ def test_batch_embedding_shape_and_consistency():
 
 def test_determinism_pretrained_false():
     img = _dummy_img(42)
+    _model_cache.clear()  # Clear model cache --> reinitialization
     emb1 = extract_embedding(img, pretrained=False)
+    _model_cache.clear()
     emb2 = extract_embedding(img, pretrained=False)
-    np.testing.assert_array_equal(emb1, emb2)  # Are embeddings (for same seed) exactly equal?
+    np.testing.assert_allclose(
+        emb1, emb2, atol=1e-5
+    )  # Are embeddings identical across model reloads (restart-safe)?
 
 
 def test_embedding_changes_with_input():

@@ -1,3 +1,5 @@
+import random
+
 import numpy as np
 import torch
 import torchvision.models as models
@@ -65,12 +67,21 @@ def _load_model(model_name: str, pretrained: bool = True, device: str = "cpu") -
 
     if pretrained:
         model = model_cls(weights=_weights[model_name])
-    else:
+    else:  # If not pretrained, load model with random weights (but with seed)
+        torch.manual_seed(0)
+        np.random.seed(0)
+        random.seed(0)
+
         model = model_cls(weights=None)
 
     model = torch.nn.Sequential(*list(model.children())[:-1])  # all layers without fully-connected
     model.eval()  # inference
     model.to(device)  # either cpu or gpu (cuda)
+
+    if device == "cuda":
+        torch.use_deterministic_algorithms(True)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
 
     with torch.no_grad():
         dummy = torch.zeros(1, 3, 224, 224, device=device)  # dummy input for dimension inference
