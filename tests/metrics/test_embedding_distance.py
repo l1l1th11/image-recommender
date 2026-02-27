@@ -3,7 +3,7 @@ import pytest
 
 from image_recommender.metrics.embedding_distance import (
     cosine_distance,
-    cosine_distance_to_many
+    cosine_distance_to_many,
 )
 
 
