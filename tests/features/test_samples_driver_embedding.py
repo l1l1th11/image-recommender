@@ -1,15 +1,16 @@
-from pathlib import Path
-import numpy as np
-from PIL import Image
+import os
 import subprocess
 import sys
-import os
+from pathlib import Path
 
-from image_recommender.features.samples_driver_embedding import (
-    load_sample_images,
-    compute_topk,
-)
+import numpy as np
+from PIL import Image
+
 from image_recommender.features.embedding import extract_embeddings_batch
+from image_recommender.features.samples_driver_embedding import (
+    compute_topk,
+    load_sample_images,
+)
 
 
 def _create_test_image(path: Path, color: tuple[int, int, int]) -> None:

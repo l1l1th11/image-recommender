@@ -8,11 +8,11 @@ from image_recommender.db.pilot import create_pilot_set
 from image_recommender.util.logs import setup_basic_logging
 
 from .commands import (
+    handle_embedding_on_samples,
     handle_extract_features,
     handle_hsv_on_samples,
     handle_list_samples,
     handle_make_pilot,
-    handle_embedding_on_samples,
 )
 
 

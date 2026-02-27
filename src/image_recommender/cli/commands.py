@@ -1,19 +1,20 @@
 import logging
 from pathlib import Path
+
 import numpy as np
 
 from image_recommender.config import SAMPLES_DIR
 from image_recommender.constants import IMAGE_EXTS
 from image_recommender.db.pilot import create_pilot_set
-from image_recommender.features.extraction_pipeline import run_extraction
-from image_recommender.features.samples_driver_hsv import topk_on_samples
-from image_recommender.util.sampler import list_samples
 from image_recommender.features.embedding import extract_embeddings_batch
+from image_recommender.features.extraction_pipeline import run_extraction
 from image_recommender.features.samples_driver_embedding import (
-    load_sample_images,
     compute_topk,
+    load_sample_images,
     print_results,
 )
+from image_recommender.features.samples_driver_hsv import topk_on_samples
+from image_recommender.util.sampler import list_samples
 
 
 def handle_list_samples(args) -> int:
