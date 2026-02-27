@@ -1,7 +1,10 @@
 import numpy as np
 import pytest
 
-from image_recommender.metrics.embedding_distance import cosine_distance, cosine_distance_to_many
+from image_recommender.metrics.embedding_distance import (
+    cosine_distance,
+    cosine_distance_to_many
+)
 
 
 def test_self_distance_is_zero():
