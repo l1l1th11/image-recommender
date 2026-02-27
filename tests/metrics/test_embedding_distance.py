@@ -68,3 +68,19 @@ def test_vectorized_matches_scalar():
     for i in range(len(X)):
         scalar = cosine_distance(q, X[i])
         assert abs(dists[i] - scalar) < 1e-10
+
+
+def test_non_1d_input_raises():
+    """Tests if ValueError is raised when input is not 1D."""
+    a = np.array([[1.0, 2.0], [3.0, 4.0]])
+    b = np.array([1.0, 2.0])
+    with pytest.raises(ValueError):
+        cosine_distance(a, b)
+
+
+def test_zero_vector_in_X_raises():
+    """Tests if ValueError is raised when X contains a zero vector."""
+    q = np.array([1.0, 1.0])
+    X = np.array([[0.0, 0.0], [1.0, 1.0]])
+    with pytest.raises(ValueError):
+        cosine_distance_to_many(q, X)
