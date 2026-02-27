@@ -12,6 +12,7 @@ from .commands import (
     handle_hsv_on_samples,
     handle_list_samples,
     handle_make_pilot,
+    handle_embedding_on_samples,
 )
 
 
@@ -74,6 +75,17 @@ def build_parser() -> ArgumentParser:
         action="store_true",
         help="Suppress error information, only print top-k neighbors and skipped images",
     )
+
+    # embedding on samples command
+    cmd_embed = subparsers.add_parser(
+        "embedding-on-samples",
+        help="Computes top-k embedding neighbors over samples",
+    )
+    cmd_embed.set_defaults(run=handle_embedding_on_samples)
+    cmd_embed.add_argument("--k", type=int, default=5)
+    cmd_embed.add_argument("--model", type=str, default="resnet18")
+    cmd_embed.add_argument("--device", type=str, default="cpu")
+    cmd_embed.add_argument("--pretrained", type=int, default=0)
 
     # extraction pipeline command
     cmd_extract = subparsers.add_parser(

@@ -1,12 +1,19 @@
 import logging
 from pathlib import Path
+import numpy as np
 
 from image_recommender.config import SAMPLES_DIR
 from image_recommender.constants import IMAGE_EXTS
 from image_recommender.db.pilot import create_pilot_set
 from image_recommender.features.extraction_pipeline import run_extraction
-from image_recommender.features.samples_driver import topk_on_samples
+from image_recommender.features.samples_driver_hsv import topk_on_samples
 from image_recommender.util.sampler import list_samples
+from image_recommender.features.embedding import extract_embeddings_batch
+from image_recommender.features.samples_driver_embedding import (
+    load_sample_images,
+    compute_topk,
+    print_results,
+)
 
 
 def handle_list_samples(args) -> int:
@@ -105,3 +112,29 @@ def handle_extract_features(args) -> int:
         logging.error("Extraction failed", exc_info=True)
 
         return 1  # failure
+
+
+def handle_embedding_on_samples(args) -> int:
+    """
+    Handles the "embedding-on-samples" CLI command.
+    """
+    samples_dir = Path("data/samples")
+    ids, images = load_sample_images(samples_dir)
+
+    embeddings = extract_embeddings_batch(
+        images,
+        model_name=args.model,
+        device=args.device,
+        pretrained=bool(args.pretrained),
+    )
+
+    results = compute_topk(ids, embeddings, k=args.k)
+
+    for i, neighbors in enumerate(results):
+        top_id, top_dist = neighbors[0]
+        if top_id != ids[i] or not np.isclose(top_dist, 0.0, atol=1e-6):
+            print(f"Self-match failed for {ids[i]}")
+            return 1
+
+    print_results(ids, results)
+    return 0
