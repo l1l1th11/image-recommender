@@ -19,7 +19,9 @@ def cosine_distance_to_many(query: np.ndarray, candidates: np.ndarray) -> np.nda
     candidates_norm = np.linalg.norm(candidates, axis=1)
     zero_mask = candidates_norm == 0
 
-    sims = np.dot(candidates, query) / (candidates_norm * query_norm)
+    with np.errstate(divide="ignore", invalid="ignore"):  # handle division by zero
+        sims = np.dot(candidates, query) / (candidates_norm * query_norm)
+
     sims = np.clip(sims, -1.0, 1.0)
     sims[zero_mask] = 0.0  # avoid NaNs
 
