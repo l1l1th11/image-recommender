@@ -3,7 +3,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-from ..metrics.embedding_distance import cosine_distance_to_many
+from ..metrics.cosine import cosine_distance_to_many
 
 
 def load_sample_images(samples_dir: Path) -> tuple[list[str], list[np.ndarray]]:
