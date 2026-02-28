@@ -30,6 +30,9 @@ def cosine_distance_to_many(query: np.ndarray, candidates: np.ndarray) -> np.nda
     return distances
 
 
+# Scalar version for one candidate:
+
+
 def cosine_distance(query: np.ndarray, candidate: np.ndarray) -> float:
     """
     Computes cosine distance from one query vector to one candidate vector.

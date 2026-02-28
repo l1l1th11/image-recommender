@@ -5,7 +5,7 @@ import numpy as np
 
 from image_recommender.features.hsv import hsv_features
 from image_recommender.io.img_loader import load_rgb
-from image_recommender.metrics.hsv_distance import hsv_distance
+from image_recommender.metrics.chi import chi_distance
 from image_recommender.util.sampler import list_samples
 
 
@@ -37,7 +37,7 @@ def topk_on_samples(
 
     for p1, f1 in features.items():
         distances: list[tuple[Path, float]] = [
-            (p2, hsv_distance(f1, f2)) for p2, f2 in features.items()
+            (p2, chi_distance(f1, f2)) for p2, f2 in features.items()
         ]
         topk = sorted(distances, key=lambda x: x[1])[:k]  # sort and get top-k
         result[p1] = topk
