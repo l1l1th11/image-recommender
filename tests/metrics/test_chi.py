@@ -51,3 +51,11 @@ def test_chi_vectorized_matches_scalar():
     )
 
     np.testing.assert_allclose(vec_result, scalar_result, rtol=1e-5)
+
+
+def test_vectorized_returns_float32():
+    """Tests if the output dtype of chi_distance_to_many is float32."""
+    q = np.random.rand(432).astype(np.float32)
+    X = np.random.rand(3, 432).astype(np.float32)
+    dists = chi_distance_to_many(q, X)
+    assert dists.dtype == np.float32

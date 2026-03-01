@@ -63,3 +63,11 @@ def test_vectorized_shape():
     X = np.array([[1.0, 0.0], [0.0, 1.0]], dtype=np.float32)
     dists = cosine_distance_to_many(q, X)
     assert dists.shape == (2,)
+
+
+def test_vectorized_returns_float32():
+    """Tests if the output dtype of cosine_distance_to_many is float32."""
+    q = np.array([1.0, 0.0], dtype=np.float32)
+    X = np.array([[1.0, 0.0]], dtype=np.float32)
+    dists = cosine_distance_to_many(q, X)
+    assert dists.dtype == np.float32

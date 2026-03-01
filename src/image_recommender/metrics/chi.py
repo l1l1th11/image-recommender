@@ -23,14 +23,15 @@ def chi_distance_to_many(query: np.ndarray, candidates: np.ndarray) -> np.ndarra
     if query.shape[0] != candidates.shape[1]:
         raise ValueError("Query and candidates must have matching number of bins")
 
-    eps = 1e-10  # to avoid division by zero
+    eps = np.float32(1e-10)  # to avoid division by zero
+    half = np.float32(0.5)
 
     # vectorized chi-squared computation
     num = (candidates - query) ** 2
     denom = candidates + query + eps
-    chi_sq = 0.5 * np.sum(num / denom, axis=1)
+    chi_sq = half * np.sum(num / denom, axis=1, dtype=np.float32)
 
-    return chi_sq
+    return chi_sq.astype(np.float32)
 
 
 # Scalar version for one candidate:
