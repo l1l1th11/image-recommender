@@ -7,7 +7,7 @@ import pytest
 from image_recommender.search.linear import LinearSearchBackend
 
 
-def euclidean_distance(query, candidates):
+def euclidean_distance(query: np.ndarray, candidates: np.ndarray) -> np.ndarray:
     diff = candidates - query
     return np.sqrt(np.sum(diff**2, axis=1))
 
@@ -16,7 +16,7 @@ def euclidean_distance(query, candidates):
 
 
 @pytest.fixture
-def fake_shards(tmp_path: Path):
+def fake_shards(tmp_path: Path) -> tuple[Path, str]:
     run_dir = tmp_path
     feature_type = "embedding"
     feature_dir = run_dir / feature_type
@@ -60,3 +60,96 @@ def test_shard_discovery(fake_shards):
     # check order of the shards:
     assert backend.shard_ids[0] == 0
     assert backend.shard_ids[1] == 1
+
+
+def test_topk_sorted_and_exact_length(fake_shards):
+    """Tests that the top-k results are sorted and have the correct length."""
+    run_dir, feature_type = fake_shards
+    backend = LinearSearchBackend(
+        run_dir=run_dir,
+        feature_type=feature_type,
+        distance_fn=euclidean_distance,
+        k=4,
+    )
+    query = np.array([1.0, 0.0, 0.0], dtype=np.float32)
+    ids, dists = backend.search(query)
+
+    assert len(ids) == 4
+    assert dists.dtype == np.float32
+    assert np.all(np.diff(dists) >= 0)
+
+
+def test_self_match_distance_zero(fake_shards):
+    """Tests that the distance to self is zero."""
+    run_dir, feature_type = fake_shards
+    backend = LinearSearchBackend(
+        run_dir=run_dir,
+        feature_type=feature_type,
+        distance_fn=euclidean_distance,
+        k=1,
+    )
+    query = np.array([1.0, 0.0, 0.0], dtype=np.float32)
+    _, dists = backend.search(query)
+    assert pytest.approx(dists[0], abs=1e-10) == 0.0
+
+
+def test_zero_query_raises(fake_shards):
+    """Tests that a zero query raises an error."""
+    run_dir, feature_type = fake_shards
+    backend = LinearSearchBackend(
+        run_dir=run_dir,
+        feature_type=feature_type,
+        distance_fn=euclidean_distance,
+        k=2,
+    )
+    with pytest.raises(ValueError):
+        backend.search(np.zeros(3, dtype=np.float32))
+
+
+def test_dimensionality_mismatch(fake_shards):
+    """Tests that a dimensionality mismatch raises an error."""
+    run_dir, feature_type = fake_shards
+    backend = LinearSearchBackend(
+        run_dir=run_dir,
+        feature_type=feature_type,
+        distance_fn=euclidean_distance,
+        k=2,
+    )
+    with pytest.raises(ValueError):
+        backend.search(np.array([1.0, 2.0]))
+
+
+def test_anomaly_logging(fake_shards, caplog):
+    """Tests that anomaly logging works."""
+    run_dir, feature_type = fake_shards
+
+    def distance_with_inf(query: np.ndarray, candidates: np.ndarray) -> np.ndarray:
+        d = euclidean_distance(query, candidates)
+        d[0] = np.inf
+        d[1] = np.nan
+        return d
+
+    backend = LinearSearchBackend(
+        run_dir=run_dir,
+        feature_type=feature_type,
+        distance_fn=distance_with_inf,
+        k=2,
+    )
+    query = np.array([1.0, 0.0, 0.0], dtype=np.float32)
+    with caplog.at_level("WARNING"):
+        backend.search(query)
+    assert any("invalid candidate distances" in r.message for r in caplog.records)
+
+
+def test_mmap_support(fake_shards):
+    run_dir, feature_type = fake_shards
+    backend = LinearSearchBackend(
+        run_dir=run_dir,
+        feature_type=feature_type,
+        distance_fn=euclidean_distance,
+        k=2,
+        mmap=True,
+    )
+    query = np.array([1.0, 0.0, 0.0], dtype=np.float32)
+    ids, _ = backend.search(query)
+    assert len(ids) == 2
