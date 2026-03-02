@@ -24,7 +24,7 @@ class LinearSearchBackend:
         distance_fn: Callable[[np.ndarray, np.ndarray], np.ndarray],
         k: int,
         mmap: bool = False,
-    ):
+    ) -> None:
         if not isinstance(k, int) or k <= 0:
             raise ValueError(f"Invalid k={k}. Must be a positive integer.")
 
@@ -37,9 +37,7 @@ class LinearSearchBackend:
         self.shard_ids = self._discover_shards()
 
     def _discover_shards(self) -> list[int]:
-        """
-        Discovers all shards in the run directory.
-        """
+        """Discovers all shards in the run directory."""
         feature_dir = self.run_dir / self.feature_type
         if not feature_dir.exists():
             raise ValueError(f"Shard directory {feature_dir} does not exist.")
@@ -47,7 +45,7 @@ class LinearSearchBackend:
         shard_ids: list[int] = []
         for path in feature_dir.iterdir():
             if path.is_dir():
-                match = re.fullmatch(r"shard_(\d{4})", path.name)
+                match = re.fullmatch(r"shard_(\d{4})", path.name)  # e.g., shard_0001
                 if match:
                     shard_ids.append(int(match.group(1)))
 
@@ -57,44 +55,13 @@ class LinearSearchBackend:
         return sorted(shard_ids)
 
     def _load_shard(self, shard_id: int) -> tuple[np.ndarray, list[int]]:
-        """
-        Loads a shard from the run directory.
-        """
+        """Loads a shard from the run directory."""
         return read_validate_shard(
             run_dir=self.run_dir,
             feature_type=self.feature_type,
             shard_id=shard_id,
             mmap=self.mmap,
         )
-
-    def _compute_shard_distances(
-        self, query: np.ndarray, candidates: np.ndarray
-    ) -> tuple[np.ndarray, int]:
-        """
-        Computes distances for a shard and handles anomalies (NaN/Inf).
-        Input: query, candidates
-        Output: distances, anomalies
-        """
-        if query.ndim != 1 or query.size == 0:
-            raise ValueError("Query must be a non-empty 1D array.")
-        if candidates.ndim != 2:
-            raise ValueError("Candidates must be a 2D array.")
-        if query.shape[0] != candidates.shape[1]:
-            raise ValueError("Dimensionality mismatch between query and candidates.")
-
-        dists = self.distance_fn(query, candidates)
-        if not isinstance(dists, np.ndarray) or dists.ndim != 1:
-            raise ValueError("Distance function must return a 1D numpy array.")
-        if dists.shape[0] != candidates.shape[0]:
-            raise ValueError("Distance output size mismatch.")
-
-        invalid_mask = ~np.isfinite(dists)
-        anomalies = int(np.sum(invalid_mask))
-        if anomalies > 0:
-            dists = dists.copy()
-            dists[invalid_mask] = np.inf
-
-        return dists.astype(np.float32, copy=False), anomalies
 
     def search(self, query: np.ndarray) -> tuple[list[int], np.ndarray]:
         """
@@ -111,38 +78,65 @@ class LinearSearchBackend:
         if np.linalg.norm(query) == 0:
             raise ValueError("Query vector must not be zero.")
 
-        heap: list[tuple[np.float32, int]] = []
-        total_candidates = 0
+        heap: list[tuple[float, int]] = []
+        total_valid_candidates = 0
+        expected_dim: int | None = None
 
         for shard_id in self.shard_ids:
-            candidates, candidate_ids = self._load_shard(shard_id)
-            total_candidates += candidates.shape[0]
+            features, ids = self._load_shard(shard_id)
 
-            dists, anomalies = self._compute_shard_distances(query, candidates)
+            if expected_dim is None:
+                expected_dim = features.shape[1]
 
-            if anomalies > 0:
+            if query.shape[0] != expected_dim:
+                raise ValueError("Dimensionality mismatch between query and features.")
+
+            distances = self.distance_fn(query, features)
+
+            if not isinstance(distances, np.ndarray) or distances.ndim != 1:
+                raise ValueError("Distance function must return a 1D numpy array.")
+
+            if distances.shape[0] != features.shape[0]:
+                raise ValueError("Distance output size mismatch.")
+
+            invalid_mask = ~np.isfinite(distances)
+            anomaly_count = int(np.sum(invalid_mask))
+
+            if anomaly_count > 0:
                 logger.warning(
-                    "%d invalid candidate distances (+inf) in shard %04d",
-                    anomalies,
+                    "%d invalid candidate distances (+inf) in shard %04d",  # e.g. 0001 instead of 1
+                    anomaly_count,
                     shard_id,
                 )
+                distances = distances.copy()
+                distances[invalid_mask] = np.inf
 
-            for dist, idx in zip(dists, candidate_ids, strict=True):
+            valid_mask = np.isfinite(distances)
+            total_valid_candidates += int(np.sum(valid_mask))
+
+            for dist, img_id in zip(distances, ids, strict=True):
                 if not np.isfinite(dist):
                     continue
+
                 if len(heap) < self.k:
-                    heapq.heappush(heap, (-dist, idx))
+                    heapq.heappush(heap, (-float(dist), img_id))
                 else:
                     if dist < -heap[0][0]:  # If the new candidate is closer than the farthest...
                         heapq.heapreplace(
-                            heap, (-dist, idx)
+                            heap, (-float(dist), img_id)
                         )  # ...replace the farthest with the new closer one.
 
         if len(heap) < self.k:
             raise ValueError(
-                f"Not enough valid candidates ({total_candidates}) to retrieve k={self.k} neighbors."
+                f"Not enough valid candidates ({total_valid_candidates}) "
+                f"to retrieve k={self.k} neighbors."
             )
 
-        sorted_topk = sorted([(-dist, idx) for dist, idx in heap], key=lambda x: x[0])
-        distances, ids = zip(*sorted_topk, strict=True)
-        return list(ids), np.asarray(distances, dtype=np.float32)
+        sorted_topk = sorted(  # sort ascending by distance
+            [(-dist, img_id) for dist, img_id in heap],
+            key=lambda x: x[0],
+        )
+
+        distances_sorted, ids_sorted = zip(*sorted_topk, strict=True)
+
+        return list(ids_sorted), np.asarray(distances_sorted, dtype=np.float32)
