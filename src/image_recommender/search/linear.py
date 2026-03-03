@@ -1,5 +1,4 @@
 import heapq
-import logging
 import re
 from collections.abc import Callable
 from pathlib import Path
@@ -7,8 +6,9 @@ from pathlib import Path
 import numpy as np
 
 from image_recommender.features.storage import read_validate_shard
+from image_recommender.util.logs import get_logger
 
-logger = logging.getLogger("project.search")
+logger = get_logger(__name__)
 
 
 class LinearSearchBackend:
