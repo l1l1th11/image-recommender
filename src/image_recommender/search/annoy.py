@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import numpy as np
 from annoy import AnnoyIndex
 
 from image_recommender.config import (
@@ -45,3 +46,34 @@ class AnnoySearchBackend:
         self._index: AnnoyIndex | None = None
         self._id_mapping: list[int] = []
         self._dim: int | None = None
+
+    def _discover_shards(self) -> list[int]:
+        feature_dir = self.run_dir / self.feature_type
+        if not feature_dir.exists():
+            raise ValueError(f"Shard directory {feature_dir} does not exist!")
+
+        shard_ids = []
+        for path in feature_dir.iterdir():
+            if path.is_dir() and path.name.startswith("shard_"):
+                try:
+                    shard_ids.append(int(path.name.split("_")[1]))
+                except ValueError:
+                    continue
+
+        if not shard_ids:
+            raise ValueError(f"No shards found in {feature_dir}.")
+
+        return sorted(shard_ids)
+
+    def _build_index(self, dummy_vectors: list[np.ndarray]):
+        if not dummy_vectors:
+            raise ValueError("No vectors provided to build index!")
+
+        dim = dummy_vectors[0].shape[0]
+        index = AnnoyIndex(dim, self.metric)
+        for i, vec in enumerate(dummy_vectors):
+            index.add_item(i, vec.tolist())
+
+        index.build(self.n_trees)
+        self._index = index
+        self._dim = dim
