@@ -29,6 +29,19 @@ def test_discover_shards(annoy_backend):
 
 def test_build_index_accepts_vectors(annoy_backend):
     dummy_vectors = [np.array([1.0, 0.0, 0.0]), np.array([0.0, 1.0, 0.0])]
-    annoy_backend._build_index(dummy_vectors)
+    dummy_ids = [10, 20]
+    annoy_backend._build_index(dummy_vectors, ids=dummy_ids)
+
     assert annoy_backend._index is not None  # Is the index built?
     assert annoy_backend._dim == 3  # Is the dimensionality correct?
+    assert annoy_backend._id_mapping == dummy_ids  # Are the IDs correct?
+
+
+def test_persist_index_creates_files(annoy_backend):
+    dummy_vectors = [np.array([1.0, 0.0, 0.0]), np.array([0.0, 1.0, 0.0])]
+    dummy_ids = [10, 20]
+    annoy_backend._build_index(dummy_vectors, ids=dummy_ids)
+
+    assert annoy_backend.index_path.exists()  # Is the index file created?
+    assert annoy_backend.mapping_path.exists()  # Is the mapping file created?
+    assert annoy_backend.meta_path.exists()  # Is the metadata file created?

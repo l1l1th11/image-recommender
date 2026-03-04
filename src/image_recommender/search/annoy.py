@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import numpy as np
@@ -48,6 +49,7 @@ class AnnoySearchBackend:
         self._dim: int | None = None
 
     def _discover_shards(self) -> list[int]:
+        """Discovers shard directories."""
         feature_dir = self.run_dir / self.feature_type
         if not feature_dir.exists():
             raise ValueError(f"Shard directory {feature_dir} does not exist!")
@@ -65,15 +67,47 @@ class AnnoySearchBackend:
 
         return sorted(shard_ids)
 
-    def _build_index(self, dummy_vectors: list[np.ndarray]):
-        if not dummy_vectors:
+    def _build_index(self, vectors: list[np.ndarray], ids: list[int] | None = None):
+        """Builds Annoy index from given vectors."""
+        if not vectors:
             raise ValueError("No vectors provided to build index!")
 
-        dim = dummy_vectors[0].shape[0]
+        dim = vectors[0].shape[0]
         index = AnnoyIndex(dim, self.metric)
-        for i, vec in enumerate(dummy_vectors):
+        self._id_mapping = ids if ids is not None else list(range(len(vectors)))
+
+        for i, vec in enumerate(vectors):
+            if vec is None or not np.any(vec):
+                logger.warning("Skipping zero or None vector at position %d", i)
+                continue
             index.add_item(i, vec.tolist())
 
         index.build(self.n_trees)
         self._index = index
         self._dim = dim
+
+        self._persist_index()  # Save index, mapping, metadata
+
+    def _persist_index(self):
+        """Persists Annoy index, ID mapping, and metadata."""
+        if self._index is None or self._dim is None:
+            raise ValueError("Cannot persist index before building!")
+
+        self.index_dir.mkdir(parents=True, exist_ok=True)
+
+        self._index.save(str(self.index_path))
+        logger.info("Annoy index saved to %s", self.index_path)
+
+        np.save(self.mapping_path, np.array(self._id_mapping, dtype=np.int32))
+        logger.info("ID mapping saved to %s", self.mapping_path)
+
+        meta = {
+            "dim": self._dim,
+            "n_trees": self.n_trees,
+            "metric": self.metric,
+            "k": self.k,
+            "num_vectors": len(self._id_mapping),
+        }
+        with open(self.meta_path, "w", encoding="utf-8") as f:
+            json.dump(meta, f)
+        logger.info("Metadata saved to %s", self.meta_path)
