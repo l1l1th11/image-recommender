@@ -1,3 +1,5 @@
+import json
+import time
 from pathlib import Path
 
 import numpy as np
@@ -81,3 +83,79 @@ def test_full_pipeline(pilot_data):
     ids, dists = backend.search(features[0])
     assert len(ids) == backend.k
     assert len(dists) == backend.k
+
+
+@pytest.mark.integration
+def test_refresh_adds_new_shard(tmp_path):
+    """Tests that the refresh function adds new shards to the index."""
+
+    # Setup pilot directory for HSV features:
+
+    run_dir = tmp_path / "pilot"
+    features_dir = run_dir / "hsv"
+    features_dir.mkdir(parents=True, exist_ok=True)
+
+    # Create first shard (shard_0000) with some dummy data:
+
+    shard0_dir = features_dir / "shard_0000"
+    shard0_dir.mkdir(parents=True, exist_ok=True)
+    features0 = np.random.rand(5, 10).astype(np.float32)
+    ids0 = np.arange(5, dtype=np.int32)  # IDs from 0 to 4
+
+    # Save features and IDs for shard 0:
+
+    np.save(shard0_dir / "features.npy", features0)
+    np.save(shard0_dir / "ids.npy", ids0)
+
+    # Save shard metadata:
+
+    meta0 = {
+        "created_at": time.time(),
+        "feature_dim": features0.shape[1],
+        "feature_dtype": str(features0.dtype),
+        "feature_type": "hsv",
+        "shard_size": features0.shape[0],
+        "version": 1,
+    }
+    with open(shard0_dir / "meta.json", "w", encoding="utf-8") as f:
+        json.dump(meta0, f)
+    (shard0_dir / "_SUCCESS").touch()  # successful write
+
+    # Initialize backend and verify the first vector is retrievable:
+
+    backend = AnnoySearchBackend(run_dir, "hsv", k=3)
+    ids_before, _ = backend.search(features0[0])
+    assert ids_before[0] == ids0[0]  # Is the top-1 result the original vector?
+
+    # Create a second shard (shard_0001) with new vectors:
+
+    shard1_dir = features_dir / "shard_0001"
+    shard1_dir.mkdir(parents=True, exist_ok=True)
+    features1 = np.random.rand(3, 10).astype(np.float32)
+    ids1 = np.arange(5, 8, dtype=np.int32)  # IDs from 5 to 7
+
+    # Save features and IDs for shard 1:
+
+    np.save(shard1_dir / "features.npy", features1)
+    np.save(shard1_dir / "ids.npy", ids1)
+
+    # Save metadata for shard 1:
+
+    meta1 = {
+        "created_at": time.time(),
+        "feature_dim": features1.shape[1],
+        "feature_dtype": str(features1.dtype),
+        "feature_type": "hsv",
+        "shard_size": features1.shape[0],
+        "version": 1,
+    }
+    with open(shard1_dir / "meta.json", "w", encoding="utf-8") as f:
+        json.dump(meta1, f)
+    (shard1_dir / "_SUCCESS").touch()
+
+    backend._build_index()  # Rebuild index
+
+    # Verify that a vector from the new shard is retrievable:
+
+    ids_after, _ = backend.search(features1[0])
+    assert ids_after[0] == ids1[0]
