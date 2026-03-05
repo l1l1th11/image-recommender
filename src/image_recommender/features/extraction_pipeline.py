@@ -9,6 +9,7 @@ from image_recommender.config import DEFAULT_FULL_SHARD_SIZE, DEFAULT_PILOT_SHAR
 from image_recommender.constants import SUPPORTED_FEATURES
 from image_recommender.db.connector import count_images
 from image_recommender.db.pilot import load_ids_pilot
+from image_recommender.features.embedding import extract_embedding
 from image_recommender.features.hsv import hsv_features
 from image_recommender.features.storage import (
     VERSION,
@@ -202,3 +203,9 @@ def extraction_wrapper(feature_type: str, img_array: np.ndarray) -> np.ndarray:
     # select feature extraction function
     if feature_type == "hsv":
         return hsv_features(img_rgb=img_array)
+
+    elif feature_type == "embedding":
+        return extract_embedding(img_rgb=img_array)
+
+    else:
+        raise ValueError(f"Unsupported feature type: {feature_type}")
