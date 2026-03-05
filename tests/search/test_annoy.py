@@ -3,54 +3,81 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from image_recommender.features.storage import read_validate_shard
 from image_recommender.search.annoy import AnnoySearchBackend
 
 
 @pytest.fixture(scope="module")
-def annoy_backend():
-    """Returns a AnnoySearchBackend instance for the pilot dataset."""
+def pilot_data():
     run_dir = Path("data/features/pilot")
-    return AnnoySearchBackend(run_dir=run_dir, feature_type="hsv", k=5)
+    features, ids = read_validate_shard(run_dir=run_dir, feature_type="hsv", shard_id=0)
+    return run_dir, features.astype(np.float32), np.array(ids, dtype=np.int32)
 
 
 @pytest.fixture(scope="module")
-def sample_query():
-    """Returns a dummy feature vector and ID for initial tests."""
-    dummy_vec = np.array([1.0, 2.0, 3.0])
-    dummy_id = 0
-    return dummy_vec, dummy_id
+def annoy_backend(pilot_data):
+    """Returns an AnnoySearchBackend instance for the pilot dataset."""
+    run_dir, _, _ = pilot_data
+    backend = AnnoySearchBackend(run_dir=run_dir, feature_type="hsv", k=5)
+    return backend
 
 
-def test_discover_shards(annoy_backend):
-    """Tests that discover_shards returns a list of integers."""
-    shards = annoy_backend._discover_shards()
-    assert isinstance(shards, list)  # Is the result a list?
-    assert all(isinstance(s, int) for s in shards)  # Are all elements integers?
+def test_index_files_created(annoy_backend):
+    """Tests that index files are created."""
+    assert annoy_backend.index_path.exists()
+    assert annoy_backend.mapping_path.exists()
+    assert annoy_backend.meta_path.exists()
 
 
-def test_build_index_accepts_vectors(annoy_backend):
-    """Tests that build_index accepts vectors."""
-    vecs = [np.array([1.0, 0.0, 0.0]), np.array([0.0, 1.0, 0.0])]
-    ids = [10, 20]
-    annoy_backend._build_index(vecs, ids=ids)
-
-    assert annoy_backend._index is not None  # Is the index built?
-    assert annoy_backend._dim == 3  # Is the dimensionality correct?
-    assert annoy_backend._id_mapping == ids  # Are the IDs correct?
-
-    query_vec = np.array([1.0, 0.0, 0.0])
-    nn_ids, nn_dists = annoy_backend.query(query_vec)
-    assert nn_ids[0] == 10  # Is the first ID correct?
-    assert len(nn_ids) <= annoy_backend.k  # Are there enough IDs?
-    assert all(d >= 0 for d in nn_dists)  # Are all distances non-negative?
+def test_reload_uses_persisted_index(pilot_data):
+    """Tests that Annoy index is loaded from persisted files."""
+    run_dir, _, _ = pilot_data
+    backend1 = AnnoySearchBackend(run_dir, "hsv", k=5)
+    backend2 = AnnoySearchBackend(run_dir, "hsv", k=5)
+    assert backend2._index is not None
+    assert backend2._dim == backend1._dim
 
 
-def test_persist_index_creates_files(annoy_backend):
-    """Tests that persist_index creates files."""
-    vecs = [np.array([1.0, 0.0, 0.0]), np.array([0.0, 1.0, 0.0])]
-    ids = [10, 20]
-    annoy_backend._build_index(vecs, ids=ids)
+def test_query_returns_self_top1(annoy_backend, pilot_data):
+    """Tests that querying a vector returns its own ID as the top-1 result."""
+    _, features, ids = pilot_data
+    query = features[0]
+    result_ids, _ = annoy_backend.search(query)
+    assert result_ids[0] == ids[0]
 
-    assert annoy_backend.index_path.exists()  # Is the index file created?
-    assert annoy_backend.mapping_path.exists()  # Is the mapping file created?
-    assert annoy_backend.meta_path.exists()  # Is the metadata file created?
+
+def test_result_length_equals_k(annoy_backend, pilot_data):
+    """Tests that query returns k results."""
+    _, features, _ = pilot_data
+    ids, _ = annoy_backend.search(features[0])
+    assert len(ids) == annoy_backend.k
+
+
+def test_distances_sorted(annoy_backend, pilot_data):
+    """Tests that distances are sorted."""
+    _, features, _ = pilot_data
+    _, dists = annoy_backend.search(features[0])
+    assert np.all(dists[:-1] <= dists[1:])
+
+
+def test_invalid_k():
+    """Tests that an invalid k raises an error."""
+    with pytest.raises(ValueError):
+        AnnoySearchBackend(Path("data/features/pilot"), "hsv", k=0)
+
+
+def test_dimensionality_mismatch(annoy_backend):
+    """Tests that a dimensionality mismatch raises an error."""
+    wrong_vec = np.random.rand(999).astype(np.float32)
+    with pytest.raises(ValueError):
+        annoy_backend.search(wrong_vec)
+
+
+@pytest.mark.integration
+def test_full_pipeline(pilot_data):
+    """Tests that the full pipeline works."""
+    run_dir, features, _ = pilot_data
+    backend = AnnoySearchBackend(run_dir, "hsv", k=5)
+    ids, dists = backend.search(features[0])
+    assert len(ids) == backend.k
+    assert len(dists) == backend.k

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import re
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
 import numpy as np
@@ -11,12 +13,23 @@ from image_recommender.config import (
     ANNOY_DEFAULT_N_TREES,
     ANNOY_DEFAULT_SEARCH_K,
 )
+from image_recommender.features.storage import read_validate_shard
 from image_recommender.util.logs import get_logger
 
 logger = get_logger(__name__)
 
+try:
+    ANNOY_VERSION = version("annoy")
+except PackageNotFoundError:
+    ANNOY_VERSION = "unknown"
+
 
 class AnnoySearchBackend:
+    """
+    Approximate nearest neighbor backend using Annoy.
+    Builds or loads a persistent index over all feature shards.
+    """
+
     def __init__(
         self,
         run_dir: Path,
@@ -33,23 +46,37 @@ class AnnoySearchBackend:
         self.run_dir = Path(run_dir)
         self.feature_type = feature_type
         self.k = k
-        self.n_trees = n_trees if n_trees else ANNOY_DEFAULT_N_TREES
-        self.metric = metric if metric else ANNOY_DEFAULT_METRIC
-        self.search_k = search_k if search_k else ANNOY_DEFAULT_SEARCH_K
+        self.n_trees = n_trees or ANNOY_DEFAULT_N_TREES
+        self.metric = metric or ANNOY_DEFAULT_METRIC
+        self.search_k = search_k or ANNOY_DEFAULT_SEARCH_K
+
+        valid_metrics = {"angular", "euclidean", "manhattan", "hamming", "dot"}
+        if self.metric not in valid_metrics:
+            raise ValueError(f"Invalid metric={self.metric}")
 
         self.index_dir = self.run_dir / self.feature_type / "annoy"
         self.index_dir.mkdir(parents=True, exist_ok=True)
 
-        self.index_path = self.index_dir / "index.ann"
-        self.mapping_path = self.index_dir / "id_mapping.npy"
-        self.meta_path = self.index_dir / "metadata.json"
+        safe_metric = re.sub(
+            r"[^a-zA-Z0-9_-]", "_", self.metric
+        )  # sanitize metric name for filename
+        config_hash = f"{safe_metric}_{self.n_trees}"
+
+        self.index_path = self.index_dir / f"index_{config_hash}.ann"
+        self.mapping_path = self.index_dir / f"id_mapping_{config_hash}.npy"
+        self.meta_path = self.index_dir / f"metadata_{config_hash}.json"
 
         self._index: AnnoyIndex | None = None
-        self._id_mapping: list[int] = []
+        self._id_mapping: np.ndarray = np.array([], dtype=np.int32)
         self._dim: int | None = None
+        self._shards: list[int] = []
 
-        if self.index_path.exists() and self.mapping_path.exists():  # If index exists...
-            self._load_index()  # ...load it.
+        if self._can_load_existing() and not self._shards_changed():
+            logger.info("Loading persisted Annoy index.")
+            self._load_index()
+        else:
+            logger.info("Building new Annoy index.")
+            self._build_index()
 
     def _discover_shards(self) -> list[int]:
         """Discovers shard directories."""
@@ -57,100 +84,104 @@ class AnnoySearchBackend:
         if not feature_dir.exists():
             raise ValueError(f"Shard directory {feature_dir} does not exist!")
 
-        shard_ids = []
-        for path in feature_dir.iterdir():
-            if path.is_dir() and path.name.startswith("shard_"):
-                try:
-                    shard_ids.append(int(path.name.split("_")[1]))
-                except ValueError:
-                    continue
+        shard_ids = [
+            int(m.group(1))
+            for p in feature_dir.iterdir()
+            if p.is_dir() and (m := re.fullmatch(r"shard_(\d{4})", p.name))
+        ]
 
         if not shard_ids:
             raise ValueError(f"No shards found in {feature_dir}.")
 
         return sorted(shard_ids)
 
-    def _load_shard(self, shard_dir: Path) -> tuple[list[np.ndarray], list[int]]:
-        """Loads vectors and IDs from a shard directory."""
-        vectors_path = shard_dir / "vectors.npy"
-        ids_path = shard_dir / "ids.npy"
+    def _load_all_shards(self) -> tuple[np.ndarray, np.ndarray]:
+        """Loads all valid feature vectors and IDs from all shard directories."""
+        self._shards = self._discover_shards()
+        vectors_list, ids_list = [], []
 
-        if not vectors_path.exists() or not ids_path.exists():
-            raise ValueError(f"Shard files missing in {shard_dir}")
+        for shard_id in self._shards:
+            features, shard_ids = read_validate_shard(
+                run_dir=self.run_dir,
+                feature_type=self.feature_type,
+                shard_id=shard_id,
+            )
+            features = features.astype(np.float32)
+            shard_ids = np.array(shard_ids, dtype=np.int32)
 
-        vectors = np.load(vectors_path).astype(np.float32)
-        ids = np.load(ids_path).astype(np.int32)
+            valid_mask = np.linalg.norm(features, axis=1) != 0
+            invalid_count = np.sum(~valid_mask)
 
-        mask = np.any(vectors != 0, axis=1)  # remove zero vectors
-        vectors = vectors[mask]
-        ids = ids[mask].tolist()
-        return [vec for vec in vectors], ids
+            if invalid_count > 0:
+                logger.warning("%d invalid vectors skipped in shard %04d", invalid_count, shard_id)
 
-    def _load_all_shards(self) -> tuple[list[np.ndarray], list[int]]:
-        """Loads all shards under feature_type."""
-        vectors: list[np.ndarray] = []
-        ids: list[int] = []
-        for shard_id in self._discover_shards():
-            shard_dir = self.run_dir / self.feature_type / f"shard_{shard_id}"
-            shard_vectors, shard_ids = self._load_shard(shard_dir)
-            vectors.extend(shard_vectors)
-            ids.extend(shard_ids)
-        return vectors, ids
+            if valid_mask.sum() == 0:
+                logger.warning("Shard %04d has no valid vectors!", shard_id)
 
-    def _build_index(self, vectors: list[np.ndarray], ids: list[int] | None = None):
-        """Builds Annoy index from given vectors."""
-        if not vectors:
-            raise ValueError("No vectors provided to build index!")
+            vectors_list.append(features[valid_mask])
+            ids_list.append(shard_ids[valid_mask])
 
-        dim = vectors[0].shape[0]
-        index = AnnoyIndex(dim, self.metric)
-        self._id_mapping = ids if ids is not None else list(range(len(vectors)))
+        if not vectors_list:
+            raise ValueError("No valid vectors found across shards!")
 
+        all_vectors = np.vstack(vectors_list)
+        all_ids = np.concatenate(ids_list)
+        return all_vectors, all_ids
+
+    def _build_index(self) -> None:
+        """Builds Annoy index from all valid vectors across all shards."""
+        vectors, ids = self._load_all_shards()
+        self._dim = vectors.shape[1]
+
+        index = AnnoyIndex(self._dim, self.metric)
         for i, vec in enumerate(vectors):
-            if vec is None or not np.any(vec):
-                logger.warning("Skipping zero or None vector at position %d", i)
-                continue
             index.add_item(i, vec.tolist())
-
         index.build(self.n_trees)
+
         self._index = index
-        self._dim = dim
+        self._id_mapping = ids
+        self._persist_index()
 
-        self._persist_index()  # Save index, mapping, metadata
-
-    def _persist_index(self):
-        """Persists Annoy index, ID mapping, and metadata."""
+    def _persist_index(self) -> None:
+        """Persists Annoy index, ID mapping, metadata, and shard list."""
         if self._index is None or self._dim is None:
-            raise ValueError("Cannot persist index before building!")
-
-        self.index_dir.mkdir(parents=True, exist_ok=True)
+            raise RuntimeError("Cannot persist uninitialized index!")
 
         self._index.save(str(self.index_path))
-        logger.info("Annoy index saved to %s", self.index_path)
-
-        np.save(self.mapping_path, np.array(self._id_mapping, dtype=np.int32))
-        logger.info("ID mapping saved to %s", self.mapping_path)
+        np.save(self.mapping_path, self._id_mapping)
 
         meta = {
             "dim": self._dim,
-            "n_trees": self.n_trees,
             "metric": self.metric,
-            "k": self.k,
+            "n_trees": self.n_trees,
+            "search_k": self.search_k,
             "num_vectors": len(self._id_mapping),
+            "annoy_version": ANNOY_VERSION,
+            "shards": self._shards,
         }
+
         with open(self.meta_path, "w", encoding="utf-8") as f:
             json.dump(meta, f)
-        logger.info("Metadata saved to %s", self.meta_path)
 
-    def _load_index(self):
-        """Loads persisted index and ID mapping."""
-        with open(self.meta_path, encoding="utf-8") as f:
-            meta = json.load(f)
-        self._dim = meta["dim"]
-        self._index = AnnoyIndex(self._dim, meta["metric"])
-        self._index.load(str(self.index_path))
-        self._id_mapping = np.load(self.mapping_path).astype(np.int32).tolist()
-        logger.info("Loaded existing Annoy index from %s", self.index_path)
+    def _can_load_existing(self) -> bool:
+        """Checks if persisted index, mapping, and metadata exist and match current config."""
+        if not (
+            self.index_path.exists() and self.mapping_path.exists() and self.meta_path.exists()
+        ):
+            return False
+
+        try:
+            with open(self.meta_path, encoding="utf-8") as f:
+                meta = json.load(f)
+        except Exception:
+            return False
+
+        self._shards = meta.get("shards", [])
+        return (
+            meta.get("metric") == self.metric
+            and meta.get("n_trees") == self.n_trees
+            and meta.get("search_k") == self.search_k
+        )
 
     def query(self, vector: np.ndarray) -> tuple[list[int], list[float]]:
         """Returns k nearest neighbors and distances for the given vector."""
@@ -166,3 +197,63 @@ class AnnoySearchBackend:
         )
         mapped_ids = [self._id_mapping[i] for i in indices]
         return mapped_ids, distances
+
+    def _shards_changed(self) -> bool:
+        """Returns True if new shards have been added since last persisted index."""
+        return self._discover_shards() != self._shards
+
+    def _load_index(self) -> None:
+        """Loads persisted Annoy index, ID mapping, and metadata."""
+        with open(self.meta_path, encoding="utf-8") as f:
+            meta = json.load(f)
+
+        self._dim = meta["dim"]
+        self._shards = meta.get("shards", [])
+
+        index = AnnoyIndex(self._dim, self.metric)
+        index.load(str(self.index_path))
+        self._index = index
+        self._id_mapping = np.load(self.mapping_path).astype(np.int32)
+
+    def refresh(self) -> None:
+        """Refreshes the index if new shards have been added or dimensions changed."""
+        if self._shards_changed():
+            logger.info("New shards detected, rebuilding Annoy index.")
+            self._build_index()
+        else:
+            logger.info("No new shards detected, index is up-to-date.")
+
+    def search(self, query: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """Searches Annoy index for k nearest neighbors to the given query vector."""
+        if self._index is None or self._dim is None:
+            raise RuntimeError("Index not initialized.")
+
+        if not isinstance(query, np.ndarray):
+            raise ValueError("Query must be a numpy array.")
+
+        if query.ndim != 1:
+            raise ValueError("Query must be 1D vector.")
+
+        if query.shape[0] != self._dim:
+            raise ValueError("Query dimensionality mismatch.")
+
+        if not np.isfinite(query).all():
+            raise ValueError("Query contains invalid values.")
+
+        if np.linalg.norm(query) == 0:
+            raise ValueError("Query vector must not be zero.")
+
+        query = query.astype(np.float32)
+
+        indices, distances = self._index.get_nns_by_vector(
+            query.tolist(), self.k, search_k=self.search_k, include_distances=True
+        )
+
+        if len(indices) != self.k:
+            raise RuntimeError("Annoy returned fewer results than k!")
+
+        pairs = sorted(zip(indices, distances, strict=True), key=lambda x: x[1])
+        ids = np.array([self._id_mapping[i] for i, _ in pairs], dtype=np.int32)
+        dists = np.array([d for _, d in pairs], dtype=np.float32)
+
+        return ids, dists
