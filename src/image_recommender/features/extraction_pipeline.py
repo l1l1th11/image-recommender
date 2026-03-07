@@ -26,9 +26,6 @@ from image_recommender.util.logs import get_logger
 # module level logger
 log = get_logger(__name__)  # pass modules name
 
-# default batch size for embeddings
-BATCH_SIZE = 32
-
 
 def run_extraction(
     feature_type: str,
@@ -154,19 +151,10 @@ def run_extraction(
                 batch_imgs.append(img_array)
                 batch_ids.append(image_id)
 
-                if len(batch_imgs) == BATCH_SIZE:
-                    emb = extract_embeddings_batch(batch_imgs)
-                    features.extend(emb)
-                    ids.extend(batch_ids)
-                    batch_imgs.clear()
-                    batch_ids.clear()
-
         if feature_type == "embedding" and batch_imgs:
             emb = extract_embeddings_batch(batch_imgs)
             features.extend(emb)
             ids.extend(batch_ids)
-            batch_imgs.clear()
-            batch_ids.clear()
 
         # get count of successfully extracted images
         actual_count = len(ids)
