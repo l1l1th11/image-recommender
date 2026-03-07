@@ -9,7 +9,7 @@ from image_recommender.config import DEFAULT_FULL_SHARD_SIZE, DEFAULT_PILOT_SHAR
 from image_recommender.constants import SUPPORTED_FEATURES
 from image_recommender.db.connector import count_images
 from image_recommender.db.pilot import load_ids_pilot
-from image_recommender.features.embedding import extract_embedding
+from image_recommender.features.embedding import extract_embeddings_batch
 from image_recommender.features.hsv import hsv_features
 from image_recommender.features.storage import (
     VERSION,
@@ -25,6 +25,9 @@ from image_recommender.util.logs import get_logger
 
 # module level logger
 log = get_logger(__name__)  # pass modules name
+
+# default batch size for embeddings
+BATCH_SIZE = 32
 
 
 def run_extraction(
@@ -125,6 +128,9 @@ def run_extraction(
         features = []
         ids = []
 
+        batch_imgs = []
+        batch_ids = []
+
         # call iterator
         for image_id, img_array in iterator_wrapper(
             input_mode=input_mode,
@@ -134,12 +140,33 @@ def run_extraction(
             db_path=db_path,
             policy=policy,
         ):
-            # extract feature and append
-            feature = extraction_wrapper(feature_type=feature_type, img_array=img_array)
-            features.append(feature)
 
-            # append id
-            ids.append(image_id)
+            if img_array is None:
+                log.warning("Image %d missing, skipping", image_id)
+                continue
+
+            if feature_type == "hsv":
+                feature = hsv_features(img_rgb=img_array)
+                features.append(feature)
+                ids.append(image_id)
+
+            elif feature_type == "embedding":
+                batch_imgs.append(img_array)
+                batch_ids.append(image_id)
+
+                if len(batch_imgs) == BATCH_SIZE:
+                    emb = extract_embeddings_batch(batch_imgs)
+                    features.extend(emb)
+                    ids.extend(batch_ids)
+                    batch_imgs.clear()
+                    batch_ids.clear()
+
+        if feature_type == "embedding" and batch_imgs:
+            emb = extract_embeddings_batch(batch_imgs)
+            features.extend(emb)
+            ids.extend(batch_ids)
+            batch_imgs.clear()
+            batch_ids.clear()
 
         # get count of successfully extracted images
         actual_count = len(ids)
@@ -184,8 +211,6 @@ def run_extraction(
     log.info("Shard size: %d", shard_size)
     log.info("Shard range: [%s - %s)", shard_start, shard_stop)
 
-    return
-
 
 def iterator_wrapper(
     input_mode: str, start: int, stop: int, pilot_path: Path, db_path: Path, policy: str
@@ -197,15 +222,3 @@ def iterator_wrapper(
         )
     else:
         return iter_id_images_from_db(start=start, stop=stop, db_path=db_path, policy=policy)
-
-
-def extraction_wrapper(feature_type: str, img_array: np.ndarray) -> np.ndarray:
-    # select feature extraction function
-    if feature_type == "hsv":
-        return hsv_features(img_rgb=img_array)
-
-    elif feature_type == "embedding":
-        return extract_embedding(img_rgb=img_array)
-
-    else:
-        raise ValueError(f"Unsupported feature type: {feature_type}")
