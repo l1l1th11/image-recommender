@@ -1,5 +1,7 @@
+import json
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 from image_recommender.cli.main import main
@@ -97,3 +99,61 @@ def test_pilot_hsv_extraction(tmp_path: Path):
 
     # ensure modification times are unchanged and no extra shards were created
     assert mtimes_1 == mtimes_2
+
+
+@pytest.mark.integration
+def test_pilot_embedding_extraction(tmp_path: Path):
+    # ensure pilot and db exist
+    if not PILOT_IDS_CSV.exists():
+        pytest.skip(f"Pilot csv file at {str(PILOT_IDS_CSV)} is missing")
+    if not DB_PATH.exists():
+        pytest.skip(f"Database at {str(DB_PATH)} is missing")
+
+    sample_path = get_any_image_path(db_path=DB_PATH)
+    if sample_path is None:
+        pytest.skip("No images present in database")
+    if not Path(sample_path).exists():
+        pytest.skip("Sample image can't be opened, external hard drive possibly not connected")
+
+    exit_code = main(
+        [
+            "extract",
+            "--feature-type",
+            "embedding",
+            "--input-mode",
+            "pilot",
+            "--run-dir",
+            str(tmp_path),
+            "--policy",
+            "skip_and_log",
+        ]
+    )
+
+    assert exit_code == 0
+
+    emb_dir = tmp_path / "embedding"
+    assert emb_dir.exists()
+
+    shards = sorted([p for p in emb_dir.iterdir() if p.is_dir() and p.name.startswith("shard_")])
+
+    assert len(shards) > 0
+
+    for shard_dir in shards:
+        features_path = shard_dir / "features.npy"
+        ids_path = shard_dir / "ids.npy"
+        meta_path = shard_dir / "meta.json"
+        marker_path = shard_dir / "_SUCCESS"
+
+        assert features_path.exists()
+        assert ids_path.exists()
+        assert meta_path.exists()
+        assert marker_path.exists()
+
+        with open(meta_path) as f:
+            meta = json.load(f)
+
+        assert meta["feature_type"] == "embedding"
+
+        features = np.load(features_path)
+
+        assert features.shape[1] == meta["feature_dim"]
