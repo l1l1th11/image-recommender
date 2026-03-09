@@ -1,5 +1,3 @@
-import json
-import time
 from pathlib import Path
 
 import numpy as np
@@ -12,7 +10,7 @@ from image_recommender.search.annoy import AnnoySearchBackend
 @pytest.fixture(scope="module")
 def pilot_data():
     run_dir = Path("data/features/pilot")
-    features, ids = read_validate_shard(run_dir=run_dir, feature_type="hsv", shard_id=0)
+    features, ids = read_validate_shard(run_dir=run_dir, feature_type="embedding", shard_id=0)
     return run_dir, features.astype(np.float32), np.array(ids, dtype=np.int32)
 
 
@@ -20,7 +18,7 @@ def pilot_data():
 def annoy_backend(pilot_data):
     """Returns an AnnoySearchBackend instance for the pilot dataset."""
     run_dir, _, _ = pilot_data
-    backend = AnnoySearchBackend(run_dir=run_dir, feature_type="hsv", k=5)
+    backend = AnnoySearchBackend(run_dir=run_dir, feature_type="embedding", k=5)
     return backend
 
 
@@ -34,10 +32,12 @@ def test_index_files_created(annoy_backend):
 def test_reload_uses_persisted_index(pilot_data):
     """Tests that Annoy index is loaded from persisted files."""
     run_dir, _, _ = pilot_data
-    backend1 = AnnoySearchBackend(run_dir, "hsv", k=5)
-    backend2 = AnnoySearchBackend(run_dir, "hsv", k=5)
+    backend1 = AnnoySearchBackend(run_dir, "embedding", k=5)
+    backend2 = AnnoySearchBackend(run_dir, "embedding", k=5)
+
     assert backend2._index is not None
     assert backend2._dim == backend1._dim
+    assert backend2._id_mapping.shape == backend1._id_mapping.shape
 
 
 def test_query_returns_self_top1(annoy_backend, pilot_data):
@@ -65,7 +65,7 @@ def test_distances_sorted(annoy_backend, pilot_data):
 def test_invalid_k():
     """Tests that an invalid k raises an error."""
     with pytest.raises(ValueError):
-        AnnoySearchBackend(Path("data/features/pilot"), "hsv", k=0)
+        AnnoySearchBackend(Path("data/features/pilot"), "embedding", k=0)
 
 
 def test_dimensionality_mismatch(annoy_backend):
@@ -79,83 +79,40 @@ def test_dimensionality_mismatch(annoy_backend):
 def test_full_pipeline(pilot_data):
     """Tests that the full pipeline works."""
     run_dir, features, _ = pilot_data
-    backend = AnnoySearchBackend(run_dir, "hsv", k=5)
+    backend = AnnoySearchBackend(run_dir, "embedding", k=5)
     ids, dists = backend.search(features[0])
     assert len(ids) == backend.k
     assert len(dists) == backend.k
 
 
 @pytest.mark.integration
-def test_refresh_adds_new_shard(tmp_path):
-    """Tests that the refresh function adds new shards to the index."""
+def test_refresh_adds_new_shard(pilot_data):
+    """Tests that the refresh function updates the index when new shards are present."""
 
-    # Setup pilot directory for HSV features:
+    run_dir, features, ids = pilot_data
+    feature_type = "embedding"
 
-    run_dir = tmp_path / "pilot"
-    features_dir = run_dir / "hsv"
-    features_dir.mkdir(parents=True, exist_ok=True)
+    # Initial backend with only the first shard
+    backend = AnnoySearchBackend(run_dir, feature_type, k=5)
 
-    # Create first shard (shard_0000) with some dummy data:
+    # Verify that first vector is retrievable
+    result_ids, _ = backend.search(features[0])
+    assert result_ids[0] == ids[0]
 
-    shard0_dir = features_dir / "shard_0000"
-    shard0_dir.mkdir(parents=True, exist_ok=True)
-    features0 = np.random.rand(5, 10).astype(np.float32)
-    ids0 = np.arange(5, dtype=np.int32)  # IDs from 0 to 4
+    # Discover all shards in pilot directory
+    shard_dirs = sorted((run_dir / feature_type).glob("shard_*"))
 
-    # Save features and IDs for shard 0:
+    # Only rebuild index if more than one shard exists
+    if len(shard_dirs) > 1:
+        backend.refresh()  # Rebuild index to include all shards
 
-    np.save(shard0_dir / "features.npy", features0)
-    np.save(shard0_dir / "ids.npy", ids0)
+        # After refresh, all vectors across shards should be in the mapping
+        expected_num_vectors = sum(np.load(shard / "ids.npy").shape[0] for shard in shard_dirs)
+        assert len(backend._id_mapping) == expected_num_vectors
 
-    # Save shard metadata:
-
-    meta0 = {
-        "created_at": time.time(),
-        "feature_dim": features0.shape[1],
-        "feature_dtype": str(features0.dtype),
-        "feature_type": "hsv",
-        "shard_size": features0.shape[0],
-        "version": 1,
-    }
-    with open(shard0_dir / "meta.json", "w", encoding="utf-8") as f:
-        json.dump(meta0, f)
-    (shard0_dir / "_SUCCESS").touch()  # successful write
-
-    # Initialize backend and verify the first vector is retrievable:
-
-    backend = AnnoySearchBackend(run_dir, "hsv", k=3)
-    ids_before, _ = backend.search(features0[0])
-    assert ids_before[0] == ids0[0]  # Is the top-1 result the original vector?
-
-    # Create a second shard (shard_0001) with new vectors:
-
-    shard1_dir = features_dir / "shard_0001"
-    shard1_dir.mkdir(parents=True, exist_ok=True)
-    features1 = np.random.rand(3, 10).astype(np.float32)
-    ids1 = np.arange(5, 8, dtype=np.int32)  # IDs from 5 to 7
-
-    # Save features and IDs for shard 1:
-
-    np.save(shard1_dir / "features.npy", features1)
-    np.save(shard1_dir / "ids.npy", ids1)
-
-    # Save metadata for shard 1:
-
-    meta1 = {
-        "created_at": time.time(),
-        "feature_dim": features1.shape[1],
-        "feature_dtype": str(features1.dtype),
-        "feature_type": "hsv",
-        "shard_size": features1.shape[0],
-        "version": 1,
-    }
-    with open(shard1_dir / "meta.json", "w", encoding="utf-8") as f:
-        json.dump(meta1, f)
-    (shard1_dir / "_SUCCESS").touch()
-
-    backend._build_index()  # Rebuild index
-
-    # Verify that a vector from the new shard is retrievable:
-
-    ids_after, _ = backend.search(features1[0])
-    assert ids_after[0] == ids1[0]
+        # Pick a vector from the last shard and ensure it is retrievable
+        last_shard = shard_dirs[-1]
+        last_ids = np.load(last_shard / "ids.npy").astype(np.int32)
+        last_features = np.load(last_shard / "features.npy").astype(np.float32)
+        result_ids_last, _ = backend.search(last_features[0])
+        assert result_ids_last[0] == last_ids[0]

@@ -44,6 +44,9 @@ class AnnoySearchBackend:
             raise ValueError(f"Invalid k={k}. Must be positive!")
 
         self.run_dir = Path(run_dir)
+        if not self.run_dir.exists():
+            raise ValueError(f"run_dir does not exist: {self.run_dir}!")
+
         self.feature_type = feature_type
         self.k = k
         self.n_trees = n_trees or ANNOY_DEFAULT_N_TREES
@@ -60,7 +63,7 @@ class AnnoySearchBackend:
         safe_metric = re.sub(
             r"[^a-zA-Z0-9_-]", "_", self.metric
         )  # sanitize metric name for filename
-        config_hash = f"{safe_metric}_{self.n_trees}"
+        config_hash = f"{safe_metric}_{self.n_trees}_{self.search_k}"
 
         self.index_path = self.index_dir / f"index_{config_hash}.ann"
         self.mapping_path = self.index_dir / f"id_mapping_{config_hash}.npy"
@@ -116,7 +119,7 @@ class AnnoySearchBackend:
                 logger.warning("%d invalid vectors skipped in shard %04d", invalid_count, shard_id)
 
             if valid_mask.sum() == 0:
-                logger.warning("Shard %04d has no valid vectors!", shard_id)
+                continue
 
             vectors_list.append(features[valid_mask])
             ids_list.append(shard_ids[valid_mask])
@@ -135,11 +138,15 @@ class AnnoySearchBackend:
 
         index = AnnoyIndex(self._dim, self.metric)
         for i, vec in enumerate(vectors):
-            index.add_item(i, vec.tolist())
+            index.add_item(i, vec)
         index.build(self.n_trees)
 
         self._index = index
         self._id_mapping = ids
+
+        if self.k > len(self._id_mapping):
+            raise ValueError("k cannot exceed number of indexed vectors!")
+
         self._persist_index()
 
     def _persist_index(self) -> None:
@@ -183,21 +190,6 @@ class AnnoySearchBackend:
             and meta.get("search_k") == self.search_k
         )
 
-    def query(self, vector: np.ndarray) -> tuple[list[int], list[float]]:
-        """Returns k nearest neighbors and distances for the given vector."""
-        if self._index is None or self._dim is None:
-            raise ValueError("Index not built yet!")
-        if vector.shape[0] != self._dim:
-            raise ValueError(
-                f"Dimensionality mismatch! Query dimension: {vector.shape[0]}, index dimension: {self._dim}"
-            )
-
-        indices, distances = self._index.get_nns_by_vector(
-            vector.tolist(), self.k, search_k=self.search_k, include_distances=True
-        )
-        mapped_ids = [self._id_mapping[i] for i in indices]
-        return mapped_ids, distances
-
     def _shards_changed(self) -> bool:
         """Returns True if new shards have been added since last persisted index."""
         return self._discover_shards() != self._shards
@@ -215,8 +207,11 @@ class AnnoySearchBackend:
         self._index = index
         self._id_mapping = np.load(self.mapping_path).astype(np.int32)
 
+        if index.get_n_items() != len(self._id_mapping):
+            raise RuntimeError("Index and ID mapping size mismatch!")
+
     def refresh(self) -> None:
-        """Refreshes the index if new shards have been added or dimensions changed."""
+        """Refreshes the index if shard files have changed."""
         if self._shards_changed():
             logger.info("New shards detected, rebuilding Annoy index.")
             self._build_index()
@@ -246,7 +241,7 @@ class AnnoySearchBackend:
         query = query.astype(np.float32)
 
         indices, distances = self._index.get_nns_by_vector(
-            query.tolist(), self.k, search_k=self.search_k, include_distances=True
+            query, self.k, search_k=self.search_k, include_distances=True
         )
 
         if len(indices) != self.k:
