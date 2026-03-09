@@ -12,10 +12,19 @@ def extract_phash(img_rgb: np.ndarray) -> np.ndarray:
     # convert to grayscale
     img_gray = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2GRAY)
 
-    # resize to fixed square
+    # resize to fixed square (32 x 32)
     img_resized = cv2.resize(img_gray, (PHASH_SIZE, PHASH_SIZE))
 
     # convert to float matrix
     img_float = img_resized.astype(np.float32)
 
-    return img_float
+    # perform discrete cosine transform
+    img_coef = cv2.dct(img_float)
+
+    # slice low frequencies (top left 8 x 8)
+    low_freq = img_coef[:8, :8]
+
+    # flatten to 1D vector
+    low_freq_vector = low_freq.flatten()
+
+    return low_freq_vector
