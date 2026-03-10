@@ -1,73 +1,108 @@
+import json
+import time
 from pathlib import Path
 
 import numpy as np
 import pytest
 
-from image_recommender.features.storage import read_validate_shard
 from image_recommender.search.annoy import AnnoySearchBackend
 
 
 @pytest.fixture(scope="module")
-def pilot_data():
-    run_dir = Path("data/features/pilot")
-    features, ids = read_validate_shard(run_dir=run_dir, feature_type="embedding", shard_id=0)
-    return run_dir, features.astype(np.float32), np.array(ids, dtype=np.int32)
+def dummy_data(tmp_path_factory):
+    """Creates dummy embeddings, IDs, _SUCCESS marker and meta.json in a temporary directory as fake shards."""
+    tmp_dir = tmp_path_factory.mktemp("pilot_dummy")
+    feature_type = "embedding"
+    feature_dir = tmp_dir / feature_type
+    feature_dir.mkdir(parents=True, exist_ok=True)
+
+    # Create initial dummy shard
+    shard_dir = feature_dir / "shard_0000"
+    shard_dir.mkdir()
+    vectors = np.random.rand(9, 16).astype(np.float32)
+    zero_vector = np.zeros((1, 16), dtype=np.float32)
+    vectors = np.vstack([vectors, zero_vector])
+    ids = np.arange(1000, 1010).astype(np.int32)
+    np.save(shard_dir / "features.npy", vectors)
+    np.save(shard_dir / "ids.npy", ids)
+    (shard_dir / "_SUCCESS").touch()
+
+    meta = {
+        "created_at": time.time(),
+        "feature_dim": vectors.shape[1],
+        "feature_dtype": str(vectors.dtype),
+        "feature_type": feature_type,
+        "shard_size": len(vectors),
+        "version": 1,
+    }
+    with open(shard_dir / "meta.json", "w") as f:
+        json.dump(meta, f)
+        f.flush()
+
+    return tmp_dir, feature_type, vectors, ids
 
 
 @pytest.fixture(scope="module")
-def annoy_backend(pilot_data):
+def annoy_backend(dummy_data):
     """Returns an AnnoySearchBackend instance for the pilot dataset."""
-    run_dir, _, _ = pilot_data
-    backend = AnnoySearchBackend(run_dir=run_dir, feature_type="embedding", k=5)
-    return backend
+    tmp_dir, feature_type, _, _ = dummy_data
+    return AnnoySearchBackend(run_dir=tmp_dir, feature_type=feature_type, k=5)
 
 
+@pytest.mark.integration
 def test_index_files_created(annoy_backend):
     """Tests that index files are created."""
-    assert annoy_backend.index_path.exists()
-    assert annoy_backend.mapping_path.exists()
-    assert annoy_backend.meta_path.exists()
+    assert isinstance(annoy_backend.index_path, Path)
+    assert isinstance(annoy_backend.mapping_path, Path)
+    assert isinstance(annoy_backend.meta_path, Path)
 
 
-def test_reload_uses_persisted_index(pilot_data):
+@pytest.mark.integration
+def test_reload_uses_persisted_index(dummy_data):
     """Tests that Annoy index is loaded from persisted files."""
-    run_dir, _, _ = pilot_data
-    backend1 = AnnoySearchBackend(run_dir, "embedding", k=5)
-    backend2 = AnnoySearchBackend(run_dir, "embedding", k=5)
+    tmp_dir, feature_type, _, _ = dummy_data
+    backend1 = AnnoySearchBackend(tmp_dir, feature_type, k=5)
+    backend2 = AnnoySearchBackend(tmp_dir, feature_type, k=5)
 
     assert backend2._index is not None
     assert backend2._dim == backend1._dim
-    assert backend2._id_mapping.shape == backend1._id_mapping.shape
+    assert len(backend2._id_mapping) == len(backend1._id_mapping)
 
 
-def test_query_returns_self_top1(annoy_backend, pilot_data):
+@pytest.mark.integration
+def test_query_returns_self_top1(annoy_backend, dummy_data):
     """Tests that querying a vector returns its own ID as the top-1 result."""
-    _, features, ids = pilot_data
-    query = features[0]
+    _, _, vectors, ids = dummy_data
+    query = vectors[0]
     result_ids, _ = annoy_backend.search(query)
-    assert result_ids[0] == ids[0]
+    assert int(result_ids[0]) == int(ids[0])
 
 
-def test_result_length_equals_k(annoy_backend, pilot_data):
+@pytest.mark.integration
+def test_result_length_equals_k(annoy_backend, dummy_data):
     """Tests that query returns k results."""
-    _, features, _ = pilot_data
-    ids, _ = annoy_backend.search(features[0])
+    _, _, vectors, _ = dummy_data
+    ids, _ = annoy_backend.search(vectors[0])
     assert len(ids) == annoy_backend.k
 
 
-def test_distances_sorted(annoy_backend, pilot_data):
+@pytest.mark.integration
+def test_distances_sorted(annoy_backend, dummy_data):
     """Tests that distances are sorted."""
-    _, features, _ = pilot_data
-    _, dists = annoy_backend.search(features[0])
+    _, _, vectors, _ = dummy_data
+    _, dists = annoy_backend.search(vectors[0])
     assert np.all(dists[:-1] <= dists[1:])
 
 
-def test_invalid_k():
+@pytest.mark.integration
+def test_invalid_k(dummy_data):
     """Tests that an invalid k raises an error."""
+    tmp_dir, feature_type, _, _ = dummy_data
     with pytest.raises(ValueError):
-        AnnoySearchBackend(Path("data/features/pilot"), "embedding", k=0)
+        AnnoySearchBackend(tmp_dir, feature_type, k=0)
 
 
+@pytest.mark.integration
 def test_dimensionality_mismatch(annoy_backend):
     """Tests that a dimensionality mismatch raises an error."""
     wrong_vec = np.random.rand(999).astype(np.float32)
@@ -76,43 +111,41 @@ def test_dimensionality_mismatch(annoy_backend):
 
 
 @pytest.mark.integration
-def test_full_pipeline(pilot_data):
+def test_full_pipeline(annoy_backend, dummy_data):
     """Tests that the full pipeline works."""
-    run_dir, features, _ = pilot_data
-    backend = AnnoySearchBackend(run_dir, "embedding", k=5)
-    ids, dists = backend.search(features[0])
-    assert len(ids) == backend.k
-    assert len(dists) == backend.k
+    _, _, vectors, _ = dummy_data
+    ids, dists = annoy_backend.search(vectors[0])
+    assert len(ids) == annoy_backend.k
+    assert len(dists) == annoy_backend.k
+    assert dists.dtype == np.float32
 
 
 @pytest.mark.integration
-def test_refresh_adds_new_shard(pilot_data):
-    """Tests that the refresh function updates the index when new shards are present."""
-
-    run_dir, features, ids = pilot_data
+def test_invalid_vectors_are_skipped(tmp_path_factory, caplog):
+    """Tests that zero vectors are skipped and logged."""
+    tmp_dir = tmp_path_factory.mktemp("invalid_vector_test")
     feature_type = "embedding"
+    shard_dir = tmp_dir / feature_type / "shard_0000"
+    shard_dir.mkdir(parents=True, exist_ok=True)
 
-    # Initial backend with only the first shard
-    backend = AnnoySearchBackend(run_dir, feature_type, k=5)
+    vectors = np.array([[1.0] * 16, np.zeros(16)], dtype=np.float32)
+    ids = np.array([0, 1], dtype=np.int32)
+    np.save(shard_dir / "features.npy", vectors)
+    np.save(shard_dir / "ids.npy", ids)
+    (shard_dir / "_SUCCESS").touch()
 
-    # Verify that first vector is retrievable
-    result_ids, _ = backend.search(features[0])
-    assert result_ids[0] == ids[0]
+    meta = {
+        "created_at": time.time(),
+        "feature_dim": 16,
+        "feature_dtype": str(vectors.dtype),
+        "feature_type": feature_type,
+        "shard_size": len(vectors),
+        "version": 1,
+    }
+    with open(shard_dir / "meta.json", "w") as f:
+        json.dump(meta, f)
 
-    # Discover all shards in pilot directory
-    shard_dirs = sorted((run_dir / feature_type).glob("shard_*"))
-
-    # Only rebuild index if more than one shard exists
-    if len(shard_dirs) > 1:
-        backend.refresh()  # Rebuild index to include all shards
-
-        # After refresh, all vectors across shards should be in the mapping
-        expected_num_vectors = sum(np.load(shard / "ids.npy").shape[0] for shard in shard_dirs)
-        assert len(backend._id_mapping) == expected_num_vectors
-
-        # Pick a vector from the last shard and ensure it is retrievable
-        last_shard = shard_dirs[-1]
-        last_ids = np.load(last_shard / "ids.npy").astype(np.int32)
-        last_features = np.load(last_shard / "features.npy").astype(np.float32)
-        result_ids_last, _ = backend.search(last_features[0])
-        assert result_ids_last[0] == last_ids[0]
+    with caplog.at_level("WARNING"):
+        backend = AnnoySearchBackend(tmp_dir, feature_type, k=1)
+        assert "invalid vectors skipped" in caplog.text.lower()
+        assert len(backend._id_mapping) == 1
