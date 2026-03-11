@@ -2,6 +2,17 @@ import numpy as np
 
 
 def hamming_distance(query: np.ndarray, candidate: np.ndarray) -> int:
+    """
+    Computes hamming distance between two vectors.
+    Hamming distance is the number of positions at which the corresponding elements of the vectors differ.
+
+    Input:
+        query: 1D binary vector of shape (D,)
+        candidate: 1D binary vector of shape (D,)
+
+    Output:
+        Integer representing the number of differing positions
+    """
     # ensure input shapes match
     if query.shape != candidate.shape:
         raise ValueError(
@@ -18,6 +29,17 @@ def hamming_distance(query: np.ndarray, candidate: np.ndarray) -> int:
 
 
 def hamming_distance_to_many(query: np.ndarray, candidates: np.ndarray) -> np.ndarray:
+    """
+    Computes hamming distances between one query vector and multiple candidates.
+    Compares the query vector to each row in the candidate matrix and returns the number of differing positions for each candidate.
+
+    Input:
+        query: 1D binary vector of shape (D,)
+        candidates: 2D matrix of binary vectors of shape (N, D)
+
+    Output:
+        1D array of shape (N,) containing the Hamming distance to each candidate
+    """
     # ensure input dimensions are correct
     if query.ndim != 1 or candidates.ndim != 2:
         raise ValueError(
