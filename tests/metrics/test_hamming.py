@@ -38,3 +38,16 @@ def test_vectorized_matches_scalar():
     v_result = hamming_distance_to_many(query=vector_1, candidates=vectors)
 
     assert np.array_equal(s_result, v_result)
+
+
+def test_vectorized_output_shape():
+    vector_1 = np.array([1, 0, 1, 0, 1, 0, 1, 0], dtype=np.uint8)
+    vector_2 = np.array([1, 1, 1, 1, 1, 1, 1, 1], dtype=np.uint8)
+    vector_3 = np.array([0, 0, 0, 0, 0, 0, 0, 0], dtype=np.uint8)
+    vector_4 = np.array([0, 1, 0, 1, 0, 1, 0, 1], dtype=np.uint8)
+
+    vectors = np.asarray([vector_2, vector_3, vector_4])
+
+    result = hamming_distance_to_many(query=vector_1, candidates=vectors)
+
+    assert result.shape == (3,)
