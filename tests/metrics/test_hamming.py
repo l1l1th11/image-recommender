@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from image_recommender.metrics.hamming import hamming_distance, hamming_distance_to_many
 
@@ -51,3 +52,18 @@ def test_vectorized_output_shape():
     result = hamming_distance_to_many(query=vector_1, candidates=vectors)
 
     assert result.shape == (3,)
+
+
+def test_dimensionality_mismatch():
+    vector_1 = np.array([1, 0, 1, 0, 1, 0, 1, 0, 1], dtype=np.uint8)
+    vector_2 = np.array([1, 1, 1, 1, 1, 1, 1, 1], dtype=np.uint8)
+
+    vector_3 = np.array([0, 0, 0, 0, 0, 0, 0], dtype=np.uint8)
+    vector_4 = np.array([0, 1, 0, 1, 0, 1, 0], dtype=np.uint8)
+    vectors = np.asarray([vector_3, vector_4])
+
+    with pytest.raises(ValueError):
+        hamming_distance(query=vector_1, candidate=vector_2)
+
+    with pytest.raises(ValueError):
+        hamming_distance_to_many(query=vector_1, candidates=vectors)
