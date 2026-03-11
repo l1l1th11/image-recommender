@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 
-from image_recommender.config import PHASH_SIZE
+from image_recommender.config import PHASH_DIM, PHASH_SIZE
 
 
 def extract_phash(img_rgb: np.ndarray) -> np.ndarray:
@@ -22,7 +22,7 @@ def extract_phash(img_rgb: np.ndarray) -> np.ndarray:
     # convert to grayscale
     img_gray = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2GRAY)
 
-    # resize to fixed square (32 x 32)
+    # resize to fixed square
     img_resized = cv2.resize(img_gray, (PHASH_SIZE, PHASH_SIZE))
 
     # convert to float matrix
@@ -31,8 +31,9 @@ def extract_phash(img_rgb: np.ndarray) -> np.ndarray:
     # perform discrete cosine transform
     img_coef = cv2.dct(img_float)
 
-    # slice low frequencies (top left 8 x 8)
-    low_freq = img_coef[:8, :8]
+    # slice low frequencies (top left square)
+    sqrt_dim = int(np.sqrt(PHASH_DIM))
+    low_freq = img_coef[:sqrt_dim, :sqrt_dim]
 
     # flatten to 1D vector
     low_freq_vector = low_freq.flatten()
