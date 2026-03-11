@@ -1,3 +1,4 @@
+import cv2
 import numpy as np
 
 from image_recommender.config import PHASH_DIM
@@ -8,11 +9,17 @@ from image_recommender.io.img_loader import load_rgb
 def test_output():
     img = load_rgb("data/samples/image_1306.jpg")
     binary_vector = extract_phash(img)
+    # resize
+    img_resized = cv2.resize(img, (420, 67))
+    binary_vector_resized = extract_phash(img_resized)
 
     # check output dimension, length, dtype and values
-    assert binary_vector.shape == (PHASH_DIM,)
-    assert binary_vector.dtype == np.uint8
-    assert np.all((binary_vector == 0) | (binary_vector == 1))
+    vectors = [binary_vector, binary_vector_resized]
+
+    for v in vectors:
+        assert v.shape == (PHASH_DIM,)
+        assert v.dtype == np.uint8
+        assert np.all((v == 0) | (v == 1))
 
 
 def test_determinism():
