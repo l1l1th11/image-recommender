@@ -21,20 +21,24 @@ def compute_umap(
 
     if not isinstance(embeddings, np.ndarray):
         raise ValueError("Embeddings must be a numpy array!")
-
     if embeddings.ndim != 2:
         raise ValueError("Embeddings must have shape (N, D)!")
 
-    n, d = embeddings.shape
-
+    n, _ = embeddings.shape
     if n < 2:
         raise ValueError("Embeddings must contain at least two samples!")
-
-    if d < 1:
-        raise ValueError("Embedding dimension must be >= 1")
-
     if n_components not in {2, 3}:
         raise ValueError("n_components must be 2 or 3")
+
+    for param in ["metric", "random_state"]:
+        if param in umap_kwargs:
+            raise ValueError(f"'{param}' cannot be overridden in compute_umap()!")
+
+    n_neighbors = umap_kwargs.get("n_neighbors", 15)
+    if n_neighbors >= n:
+        raise ValueError(
+            f"n_neighbors ({n_neighbors}) must be less than the number of samples ({n})"
+        )
 
     embeddings = np.asarray(embeddings, dtype=np.float32)
 
@@ -46,8 +50,6 @@ def compute_umap(
     )
 
     coords = reducer.fit_transform(embeddings)
-
-    coords = coords.astype(np.float32)
 
     if coords.shape != (n, n_components):
         raise RuntimeError("Unexpected UMAP output shape!")
