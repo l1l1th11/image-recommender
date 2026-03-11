@@ -55,3 +55,20 @@ def test_too_few_samples():
 
     with pytest.raises(ValueError):
         compute_umap(X)
+
+
+def test_protected_parameters():
+    """Tests that ValueError is raised when protected parameters are overridden."""
+    X = np.random.rand(20, 8).astype(np.float32)
+    for param, val in [("metric", "euclidean"), ("random_state", 123)]:
+        with pytest.raises(ValueError):
+            compute_umap(X, **{param: val})
+
+
+def test_n_neighbors_validation():
+    """Tests that ValueError is raised when n_neighbors is invalid."""
+    X = np.random.rand(10, 8).astype(np.float32)
+    with pytest.raises(ValueError):
+        compute_umap(X, n_neighbors=10)
+    with pytest.raises(ValueError):
+        compute_umap(X, n_neighbors=20)
