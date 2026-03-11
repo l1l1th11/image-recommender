@@ -22,3 +22,13 @@ def test_determinism():
 
     # check same image produces identical hashes
     assert np.array_equal(binary_vector_1, binary_vector_2)
+
+
+def test_differing_hashes():
+    img_1 = load_rgb("data/samples/image_1281.jpg")
+    binary_vector_1 = extract_phash(img_1)
+    img_2 = load_rgb("data/samples/image_0811.jpeg")
+    binary_vector_2 = extract_phash(img_2)
+
+    # check different images produce different hashes
+    assert not np.array_equal(binary_vector_1, binary_vector_2)
