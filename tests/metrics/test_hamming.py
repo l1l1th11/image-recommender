@@ -1,6 +1,6 @@
 import numpy as np
 
-from image_recommender.metrics.hamming import hamming_distance
+from image_recommender.metrics.hamming import hamming_distance, hamming_distance_to_many
 
 
 def test_self_distance():
@@ -18,3 +18,23 @@ def test_symmetry():
     result_2 = hamming_distance(query=vector_2, candidate=vector_1)
 
     assert result_1 == result_2
+
+
+def test_vectorized_matches_scalar():
+    vector_1 = np.array([1, 0, 1, 0, 1, 0, 1, 0], dtype=np.uint8)
+    vector_2 = np.array([1, 1, 1, 1, 1, 1, 1, 1], dtype=np.uint8)
+    vector_3 = np.array([0, 0, 0, 0, 0, 0, 0, 0], dtype=np.uint8)
+    vector_4 = np.array([0, 1, 0, 1, 0, 1, 0, 1], dtype=np.uint8)
+
+    vectors = np.asarray([vector_2, vector_3, vector_4])
+
+    # calculate hamming distance pair by pair
+    s_result = []
+    for v in vectors:
+        s_result.append(hamming_distance(query=vector_1, candidate=v))
+    s_result = np.asarray(s_result)
+
+    # calculate hamming distance for all pairs at once
+    v_result = hamming_distance_to_many(query=vector_1, candidates=vectors)
+
+    assert np.array_equal(s_result, v_result)
