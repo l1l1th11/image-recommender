@@ -58,7 +58,7 @@ def plot_2d(
     ax.grid(True)
 
     if run_dir is not None:  # If the run_dir is provided...
-        output_path = Path(run_dir) / filename  # ...save to data/{run_dir}/{filename},
+        output_path = Path(run_dir) / filename  # ...determine the output path,
         output_path.parent.mkdir(parents=True, exist_ok=True)  # ...create parent directory and
         fig.savefig(output_path, bbox_inches="tight", dpi=150)  # ...save.
         plt.close(fig)
@@ -106,7 +106,7 @@ def plot_3d(
     ax.set_title(title or "3D Plot")
 
     if run_dir is not None:  # If the run_dir is provided...
-        output_path = Path(run_dir) / filename  # ...save to data/{run_dir}/{filename},
+        output_path = Path(run_dir) / filename  # ...determine the output path,
         output_path.parent.mkdir(parents=True, exist_ok=True)  # ...create parent directory and
         fig.savefig(output_path, bbox_inches="tight", dpi=150)  # ...save.
         plt.close(fig)
