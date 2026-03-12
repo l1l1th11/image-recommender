@@ -6,3 +6,5 @@ dependencies:
   - numpy
   - pillow
   - pytest
+  - umap-learn
+  - matplotlib
