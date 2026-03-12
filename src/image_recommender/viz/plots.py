@@ -1,18 +1,18 @@
 from pathlib import Path
 
 import matplotlib
-import matplotlib.pyplot as plt
 import numpy as np
 
 matplotlib.use("Agg")  # non-interactive backend
+
+import matplotlib.pyplot as plt
 
 
 def validate_coordinates(coords: np.ndarray, expected_dim: int):
     """
     Validates that coordinates are a 2D array with shape (N, expected_dim).
     """
-    if not isinstance(coords, np.ndarray):
-        raise ValueError("Coordinates must be a numpy array!")
+    coords = np.asarray(coords)
 
     if coords.ndim != 2 or coords.shape[1] != expected_dim:
         raise ValueError(f"Coordinates must have shape (N,{expected_dim})")
@@ -58,10 +58,10 @@ def plot_2d(
     ax.grid(True)
 
     if run_dir is not None:  # If the run_dir is provided...
-        output_path = Path("data") / run_dir / filename  # ...save to data/{run_dir}/{filename},
+        output_path = Path(run_dir) / filename  # ...save to data/{run_dir}/{filename},
         output_path.parent.mkdir(parents=True, exist_ok=True)  # ...create parent directory and
         fig.savefig(output_path, bbox_inches="tight", dpi=150)  # ...save.
-        print(f"2D plot saved to {output_path}")
+        plt.close(fig)
 
     return fig
 
@@ -106,19 +106,9 @@ def plot_3d(
     ax.set_title(title or "3D Plot")
 
     if run_dir is not None:  # If the run_dir is provided...
-        output_path = Path("data") / run_dir / filename  # ...save to data/{run_dir}/{filename},
+        output_path = Path(run_dir) / filename  # ...save to data/{run_dir}/{filename},
         output_path.parent.mkdir(parents=True, exist_ok=True)  # ...create parent directory and
         fig.savefig(output_path, bbox_inches="tight", dpi=150)  # ...save.
-        print(f"3D plot saved to {output_path}")
+        plt.close(fig)
 
     return fig
-
-
-# ----------------------------------------
-
-if __name__ == "__main__":
-    coords_2d = np.random.rand(100, 2)
-    coords_3d = np.random.rand(100, 3)
-
-    plot_2d(coords_2d, run_dir="viz", filename="plot2d.png")
-    plot_3d(coords_3d, run_dir="viz", filename="plot3d.png")
