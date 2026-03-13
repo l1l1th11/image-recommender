@@ -14,6 +14,7 @@ from image_recommender.features.samples_driver_embedding import (
     print_results,
 )
 from image_recommender.features.samples_driver_hsv import topk_on_samples
+from image_recommender.features.storage import read_validate_shard
 from image_recommender.util.sampler import list_samples
 
 
@@ -139,3 +140,43 @@ def handle_embedding_on_samples(args) -> int:
 
     print_results(ids, results)
     return 0
+
+
+def handle_map_embeddings(args) -> int:
+    """
+    Handles the "map-embeddings" CLI command.
+    """
+    try:
+        run_dir = Path(args.run_dir)
+        feature_type = args.feature_type
+
+        embeddings_list = []
+        ids_list = []
+
+        shard_idx = 0
+        while True:
+            try:
+                features, ids = read_validate_shard(
+                    run_dir=run_dir,
+                    feature_type=feature_type,
+                    shard_id=shard_idx,
+                    mmap=False,
+                )
+            except ValueError:
+                break
+
+            embeddings_list.append(features)
+            ids_list.extend(ids)
+            shard_idx += 1
+
+        if not embeddings_list:
+            raise FileNotFoundError(f"No embedding shards found in {run_dir / feature_type}")
+
+        embeddings = np.concatenate(embeddings_list, axis=0)
+        print(embeddings.shape)
+
+        return 0
+
+    except Exception:
+        logging.error("Embedding mapping failed", exc_info=True)
+        return 1

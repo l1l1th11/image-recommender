@@ -13,6 +13,7 @@ from .commands import (
     handle_hsv_on_samples,
     handle_list_samples,
     handle_make_pilot,
+    handle_map_embeddings,
 )
 
 
@@ -140,6 +141,25 @@ def build_parser() -> ArgumentParser:
         default="skip_and_log",
         choices=("skip_and_log", "raise"),
         help="Error policy which will be passed to iterator. Available modes: skip_and_log, raise",
+    )
+
+    # map embeddings command
+    cmd_map = subparsers.add_parser(
+        "map-embeddings",
+        help="Concatenate embedding shards and print the resulting shape",
+    )
+    cmd_map.set_defaults(run=handle_map_embeddings)
+    cmd_map.add_argument(
+        "--run-dir",
+        type=str,
+        required=True,
+        help="Directory under which embedding shards are stored",
+    )
+    cmd_map.add_argument(
+        "--feature-type",
+        type=str,
+        required=True,
+        help="Feature type to load (e.g., embedding)",
     )
 
     return parser
