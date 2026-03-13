@@ -1,9 +1,10 @@
+import json
 import logging
 from pathlib import Path
 
 import numpy as np
 
-from image_recommender.config import SAMPLES_DIR
+from image_recommender.config import DR_SEED, SAMPLES_DIR
 from image_recommender.constants import IMAGE_EXTS
 from image_recommender.db.pilot import create_pilot_set
 from image_recommender.features.embedding import extract_embeddings_batch
@@ -16,6 +17,8 @@ from image_recommender.features.samples_driver_embedding import (
 from image_recommender.features.samples_driver_hsv import topk_on_samples
 from image_recommender.features.storage import read_validate_shard
 from image_recommender.util.sampler import list_samples
+from image_recommender.viz.dr import compute_umap
+from image_recommender.viz.plots import plot_2d, plot_3d
 
 
 def handle_list_samples(args) -> int:
@@ -149,6 +152,8 @@ def handle_map_embeddings(args) -> int:
     try:
         run_dir = Path(args.run_dir)
         feature_type = args.feature_type
+        dims = args.dims
+        sample_size = args.sample_size
 
         embeddings_list = []
         ids_list = []
@@ -173,8 +178,63 @@ def handle_map_embeddings(args) -> int:
             raise FileNotFoundError(f"No embedding shards found in {run_dir / feature_type}")
 
         embeddings = np.concatenate(embeddings_list, axis=0)
-        print(embeddings.shape)
 
+        if sample_size is not None and sample_size < len(ids_list):
+            rng = np.random.default_rng(DR_SEED)
+            idx = rng.choice(len(ids_list), size=sample_size, replace=False)
+            embeddings = embeddings[idx]
+            ids_list = [ids_list[i] for i in idx]
+
+        logging.info(f"Loaded embeddings matrix with shape {embeddings.shape}")
+
+        logging.info("Running UMAP projection")
+        n_neighbors = min(15, len(embeddings) - 1)
+
+        coords = compute_umap(
+            embeddings,
+            n_components=dims,
+            n_neighbors=n_neighbors,
+        )
+        logging.info(f"Generated coordinates with shape {coords.shape}")
+
+        # output directories per feature type
+        out_dir = run_dir / feature_type / "viz"
+        out_dir.mkdir(parents=True, exist_ok=True)
+
+        # save coordinates
+        coords_path = out_dir / f"coords_{dims}d.npy"
+        ids_path = out_dir / f"coords_{dims}d_ids.npy"
+
+        np.save(coords_path, coords)
+        np.save(ids_path, np.array(ids_list, dtype=np.int32))
+
+        logging.info(f"Saved coordinates → {coords_path}")
+        logging.info(f"Saved ids → {ids_path}")
+
+        # save metadata
+        metadata = {
+            "algorithm": "umap",
+            "feature_type": feature_type,
+            "dims": dims,
+            "seed": DR_SEED,
+            "n_neighbors": n_neighbors,
+            "sample_size": sample_size,
+            "n_points": int(coords.shape[0]),
+            "embedding_dim": int(embeddings.shape[1]),
+        }
+        meta_path = out_dir / f"coords_{dims}d_metadata.json"
+        with open(meta_path, "w") as f:
+            json.dump(metadata, f, indent=2)
+        logging.info(f"Saved metadata → {meta_path}")
+
+        # generate preview plot
+        preview_name = f"preview_{dims}d.png"
+        if dims == 2:
+            plot_2d(coords, title="UMAP projection", run_dir=out_dir, filename=preview_name)
+        else:
+            plot_3d(coords, title="UMAP projection", run_dir=out_dir, filename=preview_name)
+
+        logging.info("Preview plot generated")
         return 0
 
     except Exception:
