@@ -146,7 +146,7 @@ def build_parser() -> ArgumentParser:
     # map embeddings command
     cmd_map = subparsers.add_parser(
         "map-embeddings",
-        help="Concatenate embedding shards and print the resulting shape",
+        help="Run UMAP on embedding shards and export coordinates, metadata and preview plots",
     )
     cmd_map.set_defaults(run=handle_map_embeddings)
     cmd_map.add_argument(
