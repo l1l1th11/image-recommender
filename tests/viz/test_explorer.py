@@ -33,4 +33,16 @@ def test_run_embedding_explorer(tmp_path):
     fig = run_embedding_explorer(coords_path, ids_path, show=False, return_figure=True)
     assert fig is not None
     assert len(fig.data) == 1
-    assert all(str(i) in fig.data[0].text for i in ids)
+    assert all(f"ID: {i}" in fig.data[0].text for i in ids)
+
+
+def test_hover_data_generation():
+    """Tests that hover text is generated for each ID."""
+    from image_recommender.viz.explorer import build_hover_data
+
+    ids = np.array([1, 2, 3])
+
+    hover = build_hover_data(ids)
+
+    assert len(hover) == 3
+    assert hover[0] == "ID: 1"

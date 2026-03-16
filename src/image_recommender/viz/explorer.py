@@ -46,7 +46,7 @@ def run_embedding_explorer(
             y=coords[:, 1],
             mode="markers",
             marker=dict(size=5),
-            text=[str(i) for i in ids],
+            text=build_hover_data(ids),
             hovertemplate="%{text}<extra></extra>",
         )
     )
@@ -61,3 +61,10 @@ def run_embedding_explorer(
 
     if return_figure:
         return fig
+
+
+def build_hover_data(ids: np.ndarray) -> list[str]:
+    """
+    Generates simple hover text for embedding scatter plot.
+    """
+    return [f"ID: {i}" for i in ids]
