@@ -40,7 +40,10 @@ def test_run_embedding_explorer(tmp_path):
     fig = run_embedding_explorer(coords_path, ids_path, show=False, return_figure=True)
     assert fig is not None
     assert len(fig.data) == 1
-    assert all(f"ID: {i}" in fig.data[0].text for i in ids)
+
+    hover = fig.data[0].text
+    assert all("ID:" in h for h in hover)
+    assert any("<img" in h for h in hover)
 
 
 def test_hover_data_generation():
@@ -50,7 +53,8 @@ def test_hover_data_generation():
     hover = build_hover_data(ids)
 
     assert len(hover) == 3
-    assert hover[0] == "ID: 1"
+    assert "<img" in hover[0]
+    assert "ID:" in hover[0]
 
 
 def test_resolve_image_path():

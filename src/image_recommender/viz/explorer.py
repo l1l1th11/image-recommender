@@ -74,7 +74,21 @@ def build_hover_data(ids: np.ndarray) -> list[str]:
     """
     Generates simple hover text for embedding scatter plot.
     """
-    return [f"ID: {i}" for i in ids]
+    hover = []
+
+    for image_id in ids:
+
+        path = resolve_image_path(image_id)
+
+        if path is None:
+            hover.append(f"<b>ID:</b> {image_id}<br>No image")
+            continue
+
+        thumb = create_thumbnail(path)
+
+        hover.append(f"<b>ID:</b> {image_id}<br><img src='{thumb}' width='96'>")
+
+    return hover
 
 
 def resolve_image_path(image_id: int) -> Path | None:
