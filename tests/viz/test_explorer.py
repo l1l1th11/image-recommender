@@ -1,7 +1,9 @@
 import numpy as np
+from PIL import Image
 
 from image_recommender.viz.explorer import (
     build_hover_data,
+    create_thumbnail,
     load_coordinates,
     resolve_image_path,
     run_embedding_explorer,
@@ -56,3 +58,15 @@ def test_resolve_image_path():
     result = resolve_image_path(999999)  # Non-existent ID
 
     assert result is None  # Image not found
+
+
+def test_thumbnail_generation(tmp_path):
+    """Tests that thumbnails are created."""
+    img_path = tmp_path / "img.jpg"
+
+    img = Image.new("RGB", (32, 32), color=(255, 0, 0))
+    img.save(img_path)
+
+    thumb = create_thumbnail(img_path)
+
+    assert thumb.startswith("data:image/png;base64,")

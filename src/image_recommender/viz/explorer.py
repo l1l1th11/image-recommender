@@ -1,7 +1,11 @@
+import base64
+import io
+import logging
 from pathlib import Path
 
 import numpy as np
 import plotly.graph_objects as go
+from PIL import Image
 
 from image_recommender.config import SAMPLES_DIR
 from image_recommender.db.connector import get_path_by_id
@@ -91,3 +95,26 @@ def resolve_image_path(image_id: int) -> Path | None:
         return sample
 
     return None
+
+
+def create_thumbnail(image_path: Path | None, size: int = 96) -> str:
+    """
+    Creates base64 encoded thumbnail for hover preview.
+    """
+    if image_path is None:
+        return ""
+
+    try:
+        img = Image.open(image_path)
+        img.thumbnail((size, size))
+
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+
+        encoded = base64.b64encode(buf.getvalue()).decode()
+
+        return f"data:image/png;base64,{encoded}"
+
+    except Exception:
+        logging.warning(f"Failed to load image: {image_path}")
+        return ""
