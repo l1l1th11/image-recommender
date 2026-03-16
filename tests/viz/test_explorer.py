@@ -1,6 +1,11 @@
 import numpy as np
 
-from image_recommender.viz.explorer import load_coordinates, run_embedding_explorer
+from image_recommender.viz.explorer import (
+    build_hover_data,
+    load_coordinates,
+    resolve_image_path,
+    run_embedding_explorer,
+)
 
 
 def test_load_coordinates(tmp_path):
@@ -38,11 +43,16 @@ def test_run_embedding_explorer(tmp_path):
 
 def test_hover_data_generation():
     """Tests that hover text is generated for each ID."""
-    from image_recommender.viz.explorer import build_hover_data
-
     ids = np.array([1, 2, 3])
 
     hover = build_hover_data(ids)
 
     assert len(hover) == 3
     assert hover[0] == "ID: 1"
+
+
+def test_resolve_image_path():
+    """Tests that missing images return None."""
+    result = resolve_image_path(999999)  # Non-existent ID
+
+    assert result is None  # Image not found

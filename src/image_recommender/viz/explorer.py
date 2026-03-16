@@ -3,6 +3,9 @@ from pathlib import Path
 import numpy as np
 import plotly.graph_objects as go
 
+from image_recommender.config import SAMPLES_DIR
+from image_recommender.db.connector import get_path_by_id
+
 
 def load_coordinates(coords_path: Path, ids_path: Path) -> tuple[np.ndarray, np.ndarray]:
     """
@@ -68,3 +71,23 @@ def build_hover_data(ids: np.ndarray) -> list[str]:
     Generates simple hover text for embedding scatter plot.
     """
     return [f"ID: {i}" for i in ids]
+
+
+def resolve_image_path(image_id: int) -> Path | None:
+    """
+    Resolves image path from database or sample directory.
+    """
+    try:
+        path = get_path_by_id(image_id)
+        if path:
+            p = Path(path)
+            if p.exists():
+                return p
+    except Exception:
+        pass
+
+    sample = SAMPLES_DIR / f"{image_id}.jpg"
+    if sample.exists():
+        return sample
+
+    return None
