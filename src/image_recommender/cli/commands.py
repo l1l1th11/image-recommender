@@ -15,6 +15,7 @@ from image_recommender.features.samples_driver_embedding import (
 )
 from image_recommender.features.samples_driver_hsv import topk_on_samples
 from image_recommender.util.sampler import list_samples
+from image_recommender.viz.map_embeddings import run_map_embeddings
 
 
 def handle_list_samples(args) -> int:
@@ -139,3 +140,20 @@ def handle_embedding_on_samples(args) -> int:
 
     print_results(ids, results)
     return 0
+
+
+def handle_map_embeddings(args) -> int:
+    """
+    Handles the "map-embeddings" CLI command.
+    """
+    try:
+        run_map_embeddings(
+            run_dir=Path(args.run_dir),
+            feature_type=args.feature_type,
+            dims=args.dims,
+            sample_size=args.sample_size,
+        )
+        return 0
+    except Exception as e:
+        logging.error(f"Embedding mapping failed: {e}", exc_info=True)
+        return 1

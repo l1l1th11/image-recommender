@@ -2,7 +2,7 @@ import sys
 from argparse import ArgumentParser
 from collections.abc import Sequence
 
-from image_recommender.config import DB_PATH, PILOT_IDS_CSV
+from image_recommender.config import DB_PATH, DR_SAMPLE_SIZE, PILOT_IDS_CSV
 from image_recommender.constants import SUPPORTED_FEATURES
 from image_recommender.db.pilot import create_pilot_set
 from image_recommender.util.logs import setup_basic_logging
@@ -13,6 +13,7 @@ from .commands import (
     handle_hsv_on_samples,
     handle_list_samples,
     handle_make_pilot,
+    handle_map_embeddings,
 )
 
 
@@ -140,6 +141,30 @@ def build_parser() -> ArgumentParser:
         default="skip_and_log",
         choices=("skip_and_log", "raise"),
         help="Error policy which will be passed to iterator. Available modes: skip_and_log, raise",
+    )
+
+    # map embeddings command
+    cmd_map = subparsers.add_parser(
+        "map-embeddings",
+        help="Run UMAP on embedding shards and export coordinates, metadata and preview plots",
+    )
+    cmd_map.set_defaults(run=handle_map_embeddings)
+    cmd_map.add_argument(
+        "--run-dir",
+        required=True,
+        help="Directory under which embedding shards are stored",
+    )
+    cmd_map.add_argument(
+        "--feature-type", required=True, choices=SUPPORTED_FEATURES, help="Feature type to project"
+    )
+    cmd_map.add_argument(
+        "--dims", type=int, default=2, choices=[2, 3], help="Number of UMAP dimensions (2 or 3)"
+    )
+    cmd_map.add_argument(
+        "--sample-size",
+        type=int,
+        default=DR_SAMPLE_SIZE,
+        help="Optional number of embeddings to sample for UMAP projection",
     )
 
     return parser
