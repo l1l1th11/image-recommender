@@ -15,6 +15,7 @@ from image_recommender.features.samples_driver_embedding import (
 )
 from image_recommender.features.samples_driver_hsv import topk_on_samples
 from image_recommender.util.sampler import list_samples
+from image_recommender.viz.explorer import run_embedding_explorer
 from image_recommender.viz.map_embeddings import run_map_embeddings
 
 
@@ -156,4 +157,20 @@ def handle_map_embeddings(args) -> int:
         return 0
     except Exception as e:
         logging.error(f"Embedding mapping failed: {e}", exc_info=True)
+        return 1
+
+
+def handle_explore_map(args) -> int:
+    """
+    Handles the "explore-map" CLI command.
+    """
+    try:
+        run_embedding_explorer(
+            coords_path=Path(args.coords),
+            ids_path=Path(args.ids),
+            show=True,
+        )
+        return 0
+    except Exception:
+        logging.error("Explorer failed", exc_info=True)
         return 1
