@@ -9,7 +9,7 @@ def test_length_neighbors():
     vector_3 = np.array([0, 0, 0, 0, 0, 0, 0, 0], dtype=np.uint8)
     vector_4 = np.array([0, 1, 0, 1, 0, 1, 0, 1], dtype=np.uint8)
 
-    vectors = np.asarray([vector_1, vector_2, vector_3, vector_4])
+    vectors = np.vstack([vector_1, vector_2, vector_3, vector_4])
     ids = ["1", "2", "3", "4"]
 
     results = compute_topk(ids=ids, phashes=vectors, k=2)
@@ -18,3 +18,21 @@ def test_length_neighbors():
     assert len(results) == 4
     for n_neighbors in results:
         assert len(n_neighbors) == 2
+
+
+def test_self_top_neighbor():
+    vector_1 = np.array([1, 0, 1, 0, 1, 0, 1, 0], dtype=np.uint8)
+    vector_2 = np.array([1, 1, 1, 1, 1, 1, 1, 1], dtype=np.uint8)
+    vector_3 = np.array([0, 0, 0, 0, 0, 0, 0, 0], dtype=np.uint8)
+    vector_4 = np.array([0, 1, 0, 1, 0, 1, 0, 1], dtype=np.uint8)
+
+    vectors = np.vstack([vector_1, vector_2, vector_3, vector_4])
+    ids = ["1", "2", "3", "4"]
+
+    results = compute_topk(ids=ids, phashes=vectors, k=2)
+
+    # ensure self is nearest neighbor
+    for query_id, n_neighbors in zip(ids, results, strict=True):
+        top_id, top_dist = n_neighbors[0]
+        assert top_dist == 0
+        assert top_id == query_id
