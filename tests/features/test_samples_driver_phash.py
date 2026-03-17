@@ -36,3 +36,22 @@ def test_self_top_neighbor():
         top_id, top_dist = n_neighbors[0]
         assert top_dist == 0
         assert top_id == query_id
+
+
+def test_distances_sorted_ascending():
+    vector_1 = np.array([1, 0, 1, 0, 1, 0, 1, 0], dtype=np.uint8)
+    vector_2 = np.array([1, 1, 1, 1, 1, 1, 1, 1], dtype=np.uint8)
+    vector_3 = np.array([0, 0, 0, 0, 0, 0, 0, 0], dtype=np.uint8)
+    vector_4 = np.array([0, 1, 0, 1, 0, 1, 0, 1], dtype=np.uint8)
+
+    vectors = np.vstack([vector_1, vector_2, vector_3, vector_4])
+    ids = ["1", "2", "3", "4"]
+
+    results = compute_topk(ids=ids, phashes=vectors, k=2)
+
+    # ensure distances are sorted ascending
+    for n_neighbors in results:
+        distances = [dist for _, dist in n_neighbors]
+        # compare adjacent elements
+        for a, b in zip(distances, distances[1:], strict=False):
+            assert a <= b
