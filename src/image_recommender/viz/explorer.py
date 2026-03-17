@@ -6,10 +6,14 @@ from pathlib import Path
 
 import numpy as np
 import plotly.graph_objects as go
+import plotly.io as pio
 from PIL import Image
+from sklearn.neighbors import NearestNeighbors
 
 from image_recommender.config import SAMPLES_DIR
 from image_recommender.db.connector import get_path_by_id
+
+pio.renderers.default = "browser"
 
 
 def load_coordinates(coords_path: Path, ids_path: Path) -> tuple[np.ndarray, np.ndarray]:
@@ -54,6 +58,64 @@ def load_coordinates(coords_path: Path, ids_path: Path) -> tuple[np.ndarray, np.
         raise ValueError("Coordinates must have shape (N,2)")
 
     return coords, ids
+
+
+def build_neighbor_model(coords: np.ndarray) -> NearestNeighbors:
+    """
+    Builds a k-nearest neighbor index for 2D coordinates.
+    """
+    n_neighbors = min(9, len(coords))
+    nn = NearestNeighbors(n_neighbors=n_neighbors)
+    nn.fit(coords)
+    return nn
+
+
+def show_neighbor_grid(neighbor_ids: list[int], show: bool = True) -> None:
+    """
+    Displays a grid of thumbnail images for given neighbor IDs.
+    """
+    images = []
+    for img_id in neighbor_ids:
+        path = resolve_image_path(img_id)
+        if path is None:
+            continue
+        thumb = create_thumbnail(path, size=128)
+        if thumb:
+            images.append(thumb)
+
+    if not images:
+        logging.warning("No neighbor images available")
+        return
+
+    fig = go.Figure()
+    grid_size = int(np.ceil(np.sqrt(len(images))))
+    idx = 0
+
+    for r in range(grid_size):
+        for c in range(grid_size):
+            if idx >= len(images):
+                break
+            fig.add_layout_image(
+                dict(
+                    source=images[idx],
+                    x=c,
+                    y=-r,
+                    sizex=1,
+                    sizey=1,
+                    xref="x",
+                    yref="y",
+                )
+            )
+            idx += 1
+
+    fig.update_layout(
+        title="Nearest Neighbor Images",
+        xaxis=dict(visible=False),
+        yaxis=dict(visible=False),
+    )
+
+    if show:
+        fig.show()
 
 
 def run_embedding_explorer(
