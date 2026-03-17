@@ -1,4 +1,7 @@
+import json
+
 import numpy as np
+import pytest
 from PIL import Image
 
 from image_recommender.viz.explorer import (
@@ -10,29 +13,42 @@ from image_recommender.viz.explorer import (
 )
 
 
-def test_load_coordinates(tmp_path):
-    """Tests that coordinates and IDs are loaded correctly."""
-    coords_path = tmp_path / "coords.npy"
-    ids_path = tmp_path / "ids.npy"
+@pytest.fixture
+def sample_images(tmp_path, monkeypatch):
+    """Creates dummy images."""
+    ids = [1, 2, 3]
+    for img_id in ids:
+        img = Image.new("RGB", (32, 32), color=(img_id * 40, 0, 0))
+        img.save(tmp_path / f"{img_id}.jpg")
 
+    monkeypatch.setattr("image_recommender.viz.explorer.SAMPLES_DIR", tmp_path)
+    return ids
+
+
+def test_load_coordinates_json(tmp_path):
+    """Tests that coordinates and IDs are loaded correctly."""
     coords = np.random.rand(3, 2)
-    ids = np.array([1, 2, 3])
+    ids = [1, 2, 3]
+
+    coords_path = tmp_path / "coords.npy"
+    ids_path = tmp_path / "ids.json"
 
     np.save(coords_path, coords)
-    np.save(ids_path, ids)
+    with open(ids_path, "w") as f:
+        json.dump(ids, f)
 
     loaded_coords, loaded_ids = load_coordinates(coords_path, ids_path)
     assert np.array_equal(loaded_coords, coords)
-    assert np.array_equal(loaded_ids, ids)
+    assert np.array_equal(loaded_ids, np.array(ids))
 
 
-def test_run_embedding_explorer(tmp_path):
+def test_run_embedding_explorer(tmp_path, sample_images):
     """Tests that a figure is returned."""
     coords_path = tmp_path / "coords.npy"
     ids_path = tmp_path / "ids.npy"
 
     coords = np.random.rand(3, 2)
-    ids = np.array([1, 2, 3])
+    ids = np.array(sample_images)
 
     np.save(coords_path, coords)
     np.save(ids_path, ids)
@@ -46,13 +62,12 @@ def test_run_embedding_explorer(tmp_path):
     assert any("<img" in h for h in hover)
 
 
-def test_hover_data_generation():
+def test_hover_data_generation(sample_images):
     """Tests that hover text is generated for each ID."""
-    ids = np.array([1, 2, 3])
-
+    ids = np.array(sample_images)
     hover = build_hover_data(ids)
 
-    assert len(hover) == 3
+    assert len(hover) == len(ids)
     assert "<img" in hover[0]
     assert "ID:" in hover[0]
 
