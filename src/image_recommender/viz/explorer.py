@@ -118,6 +118,28 @@ def show_neighbor_grid(neighbor_ids: list[int], show: bool = True) -> None:
         fig.show()
 
 
+def build_scatter(coords: np.ndarray, ids: np.ndarray) -> go.Figure:
+    """
+    Creates a Plotly ScatterGL figure for 2D embeddings.
+    """
+    hover_data = build_hover_data(ids)
+
+    fig = go.Figure(
+        go.Scattergl(
+            x=coords[:, 0],
+            y=coords[:, 1],
+            mode="markers",
+            marker=dict(size=5, opacity=0.6),
+            text=hover_data,
+            hovertemplate="%{text}<extra></extra>",
+        )
+    )
+
+    fig.update_layout(title="Embedding Explorer", dragmode="pan", hovermode="closest")
+
+    return fig
+
+
 def run_embedding_explorer(
     coords_path: Path, ids_path: Path, show: bool = True, return_figure: bool = False
 ) -> go.Figure | None:
@@ -131,24 +153,31 @@ def run_embedding_explorer(
     """
     coords, ids = load_coordinates(coords_path, ids_path)
 
-    fig = go.Figure(
-        go.Scattergl(
-            x=coords[:, 0],
-            y=coords[:, 1],
-            mode="markers",
-            marker=dict(size=5),
-            text=build_hover_data(ids),
-            hovertemplate="%{text}<extra></extra>",
-        )
-    )
+    fig = build_scatter(coords, ids)
 
-    fig.update_layout(title="Embedding Explorer", dragmode="pan", hovermode="closest")
+    nn = build_neighbor_model(coords)
+    fig._neighbor_model = nn
+    fig._ids = ids
+    fig._coords = coords
+
+    def _handle_click(_trace, points, _state) -> None:
+        if not points.point_inds:
+            return
+        idx = points.point_inds[0]
+        _, neighbors = nn.kneighbors([coords[idx]])
+        neighbor_ids = ids[neighbors[0]]
+        show_neighbor_grid(list(neighbor_ids), show=True)
+
+    try:
+        fig.data[0].on_click(_handle_click)
+    except Exception:
+        logging.warning(
+            "Click interaction may not work in this environment. "
+            "Use Jupyter Notebook or Dash for full interactivity."
+        )
 
     if show:
-        try:
-            fig.show()
-        except Exception:
-            pass
+        fig.show()
 
     if return_figure:
         return fig
@@ -203,11 +232,11 @@ def create_thumbnail(image_path: Path | None, size: int = 96) -> str:
         return ""
 
     try:
-        img = Image.open(image_path)
-        img.thumbnail((size, size))
+        with Image.open(image_path) as img:
+            img.thumbnail((size, size))
 
-        buf = io.BytesIO()
-        img.save(buf, format="PNG")
+            buf = io.BytesIO()
+            img.save(buf, format="PNG")
 
         encoded = base64.b64encode(buf.getvalue()).decode()
 
