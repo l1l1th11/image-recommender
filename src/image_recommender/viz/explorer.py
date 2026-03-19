@@ -6,14 +6,12 @@ from pathlib import Path
 
 import numpy as np
 import plotly.graph_objects as go
-import plotly.io as pio
+from dash import Dash, Input, Output, dcc, html
 from PIL import Image
 from sklearn.neighbors import NearestNeighbors
 
 from image_recommender.config import SAMPLES_DIR
 from image_recommender.db.connector import get_path_by_id
-
-pio.renderers.default = "browser"
 
 
 def load_coordinates(coords_path: Path, ids_path: Path) -> tuple[np.ndarray, np.ndarray]:
@@ -60,69 +58,45 @@ def load_coordinates(coords_path: Path, ids_path: Path) -> tuple[np.ndarray, np.
     return coords, ids
 
 
-def build_neighbor_model(coords: np.ndarray) -> NearestNeighbors:
+def build_neighbor_model(coords: np.ndarray, k: int) -> NearestNeighbors:
     """
     Builds a k-nearest neighbor index for 2D coordinates.
     """
-    n_neighbors = min(9, len(coords))
+    n_neighbors = min(k + 1, len(coords))
     nn = NearestNeighbors(n_neighbors=n_neighbors)
     nn.fit(coords)
     return nn
 
 
-def show_neighbor_grid(neighbor_ids: list[int], show: bool = True) -> None:
+def show_neighbor_grid(neighbor_ids: list[int], db_path: Path) -> list:
     """
     Displays a grid of thumbnail images for given neighbor IDs.
     """
     images = []
     for img_id in neighbor_ids:
-        path = resolve_image_path(img_id)
+        path = resolve_image_path(int(img_id), db_path)
+
         if path is None:
             continue
         thumb = create_thumbnail(path, size=128)
         if thumb:
-            images.append(thumb)
-
-    if not images:
-        logging.warning("No neighbor images available")
-        return
-
-    fig = go.Figure()
-    grid_size = int(np.ceil(np.sqrt(len(images))))
-    idx = 0
-
-    for r in range(grid_size):
-        for c in range(grid_size):
-            if idx >= len(images):
-                break
-            fig.add_layout_image(
-                dict(
-                    source=images[idx],
-                    x=c,
-                    y=-r,
-                    sizex=1,
-                    sizey=1,
-                    xref="x",
-                    yref="y",
+            images.append(
+                html.Div(
+                    [
+                        html.Div(f"ID: {img_id}", style={"textAlign": "center"}),
+                        html.Img(src=thumb, style={"width": "128px", "margin": "5px"}),
+                    ]
                 )
             )
-            idx += 1
 
-    fig.update_layout(
-        title="Nearest Neighbor Images",
-        xaxis=dict(visible=False),
-        yaxis=dict(visible=False),
-    )
-
-    if show:
-        fig.show()
+    return images
 
 
-def build_scatter(coords: np.ndarray, ids: np.ndarray) -> go.Figure:
+def build_scatter(coords: np.ndarray, ids: np.ndarray, db_path: Path) -> go.Figure:
     """
     Creates a Plotly ScatterGL figure for 2D embeddings.
     """
-    hover_data = build_hover_data(ids)
+    hover_data = build_hover_data(ids, db_path)
 
     fig = go.Figure(
         go.Scattergl(
@@ -141,81 +115,102 @@ def build_scatter(coords: np.ndarray, ids: np.ndarray) -> go.Figure:
 
 
 def run_embedding_explorer(
-    coords_path: Path, ids_path: Path, show: bool = True, return_figure: bool = False
+    coords_path: Path,
+    ids_path: Path,
+    db_path: Path,
+    k: int = 5,
+    show: bool = True,
+    return_figure: bool = False,
 ) -> go.Figure | None:
     """
     Launches interactive embedding explorer.
     Input:
     - coords_path (path to coordinate file)
     - ids_path (path to ID file)
-    - show (whether to show the plot)
+    - k (number of neighbors)
+    - show (whether to show the app)
     Output: figure
     """
     coords, ids = load_coordinates(coords_path, ids_path)
 
-    fig = build_scatter(coords, ids)
+    nn = build_neighbor_model(coords, k)
 
-    nn = build_neighbor_model(coords)
-    fig._neighbor_model = nn
-    fig._ids = ids
-    fig._coords = coords
+    fig = build_scatter(coords, ids, db_path)
 
-    def _handle_click(_trace, points, _state) -> None:
-        if not points.point_inds:
-            return
-        idx = points.point_inds[0]
+    app = Dash(__name__)
+
+    app.layout = html.Div(
+        [
+            html.H2("Embedding Explorer"),
+            dcc.Graph(
+                id="scatter",
+                figure=fig,
+                style={"height": "70vh"},
+            ),
+            html.H3("Nearest Neighbors"),
+            html.Div(
+                id="neighbors",
+                style={"display": "flex", "flexWrap": "wrap"},
+            ),
+        ]
+    )
+
+    @app.callback(
+        Output("neighbors", "children"),
+        Input("scatter", "clickData"),
+    )
+    def update_neighbors(clickData):
+        if not clickData or "points" not in clickData:
+            return html.Div("Click a point to see neighbors")
+
+        idx = clickData["points"][0]["pointIndex"]
+
         _, neighbors = nn.kneighbors([coords[idx]])
         neighbor_ids = ids[neighbors[0]]
-        show_neighbor_grid(list(neighbor_ids), show=True)
 
-    try:
-        fig.data[0].on_click(_handle_click)
-    except Exception:
-        logging.warning(
-            "Click interaction may not work in this environment. "
-            "Use Jupyter Notebook or Dash for full interactivity."
-        )
+        neighbor_ids = [int(i) for i in neighbor_ids if i != ids[idx]]
+
+        neighbor_ids = neighbor_ids[:k]
+
+        return show_neighbor_grid(neighbor_ids, db_path)
 
     if show:
-        fig.show()
+        app.run(debug=True)
 
     if return_figure:
         return fig
 
 
-def build_hover_data(ids: np.ndarray) -> list[str]:
+def build_hover_data(ids: np.ndarray, db_path: Path) -> list[str]:
     """
     Generates simple hover text for embedding scatter plot.
     """
     hover = []
 
     for image_id in ids:
-
-        path = resolve_image_path(image_id)
+        path = resolve_image_path(int(image_id), db_path)
 
         if path is None:
             hover.append(f"<b>ID:</b> {image_id}<br>No image")
             continue
 
-        thumb = create_thumbnail(path)
-
-        hover.append(f"<b>ID:</b> {image_id}<br><img src='{thumb}' width='96'>")
+        hover.append(f"<b>ID:</b> {image_id}<br>Path: {path}")
 
     return hover
 
 
-def resolve_image_path(image_id: int) -> Path | None:
+def resolve_image_path(image_id: int, db_path: Path) -> Path | None:
     """
     Resolves image path from database or sample directory.
     """
     try:
-        path = get_path_by_id(image_id)
+        path = get_path_by_id(image_id, db_path)
         if path:
             p = Path(path)
             if p.exists():
                 return p
-    except Exception:
-        pass
+    except Exception as e:
+        logging.warning(f"DB lookup failed for {image_id}: {e}")
 
     sample = SAMPLES_DIR / f"{image_id}.jpg"
     if sample.exists():

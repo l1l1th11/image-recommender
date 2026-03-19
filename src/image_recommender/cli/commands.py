@@ -168,7 +168,8 @@ def handle_explore_map(args) -> int:
         run_embedding_explorer(
             coords_path=Path(args.coords),
             ids_path=Path(args.ids),
-            show=True,
+            db_path=Path(args.db_path),
+            k=args.k,
         )
         return 0
     except Exception:

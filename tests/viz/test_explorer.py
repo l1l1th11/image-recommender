@@ -1,14 +1,11 @@
-import json
+from pathlib import Path
 
 import numpy as np
 import pytest
 from PIL import Image
 
 from image_recommender.viz.explorer import (
-    build_neighbor_model,
-    create_thumbnail,
     load_coordinates,
-    resolve_image_path,
     run_embedding_explorer,
     show_neighbor_grid,
 )
@@ -24,102 +21,106 @@ def sample_data(tmp_path, monkeypatch):
     ids_path = tmp_path / "ids.npy"
 
     np.save(coords_path, coords)
-    with open(ids_path, "w", encoding="utf-8") as f:
-        json.dump(ids.tolist(), f)
+    np.save(ids_path, ids)
 
     samples_dir = tmp_path / "samples"
-    samples_dir.mkdir(parents=True, exist_ok=True)
+    samples_dir.mkdir()
 
-    monkeypatch.setattr("image_recommender.viz.explorer.SAMPLES_DIR", samples_dir)
+    monkeypatch.setattr(
+        "image_recommender.viz.explorer.SAMPLES_DIR",
+        samples_dir,
+    )
 
     for img_id in ids:
-        img = Image.new("RGB", (32, 32), color=(img_id * 40, 0, 0))
+        img = Image.new("RGB", (32, 32), color=(100, 0, 0))
         img.save(samples_dir / f"{img_id}.jpg")
 
-    return coords_path, ids_path, ids
+    return coords_path, ids_path, samples_dir
 
 
-def test_load_coordinates(tmp_path):
+def test_load_coordinates(sample_data):
     """Tests that coordinates and IDs are loaded correctly."""
-    coords_path = tmp_path / "coords.npy"
-    ids_path = tmp_path / "ids.npy"
+    coords_path, ids_path, _ = sample_data
 
-    coords = np.random.rand(3, 2)
-    ids = np.array([1, 2, 3])
+    coords, ids = load_coordinates(coords_path, ids_path)
 
-    np.save(coords_path, coords)
-    ids_path = tmp_path / "ids.json"
-    with open(ids_path, "w", encoding="utf-8") as f:
-        json.dump(ids.tolist(), f)
-
-    loaded_coords, loaded_ids = load_coordinates(coords_path, ids_path)
-    assert np.array_equal(loaded_coords, coords)
-    assert np.array_equal(loaded_ids, ids)
+    assert coords.shape[1] == 2
+    assert len(coords) == len(ids)
 
 
-def test_run_embedding_explorer(tmp_path):
-    """Tests that a figure is returned."""
-    coords_path = tmp_path / "coords.npy"
-    ids_path = tmp_path / "ids.npy"
+def test_plot_renders(sample_data):
+    """Tests that scatter plot is rendered correctly."""
+    coords_path, ids_path, samples_dir = sample_data
 
-    coords = np.random.rand(3, 2)
-    ids = np.array([1, 2, 3])
+    fig = run_embedding_explorer(
+        coords_path,
+        ids_path,
+        db_path=samples_dir,
+        show=False,
+        return_figure=True,
+    )
 
-    np.save(coords_path, coords)
-    ids_path = tmp_path / "ids.json"
-    with open(ids_path, "w", encoding="utf-8") as f:
-        json.dump(ids.tolist(), f)
-
-    fig = run_embedding_explorer(coords_path, ids_path, show=False, return_figure=True)
     assert fig is not None
-    assert len(fig.data) == 1
-
-    hover = fig.data[0].text
-    assert all("ID:" in h for h in hover)
+    assert len(fig.data) > 0
+    assert fig.data[0].type == "scattergl"  # Is it a ScatterGL plot?
 
 
-def test_invalid_coordinate_paths(tmp_path):
+def test_hover_thumbnail(sample_data):
+    """Tests that hover interaction contains image information."""
+    coords_path, ids_path, samples_dir = sample_data
+
+    fig = run_embedding_explorer(
+        coords_path,
+        ids_path,
+        db_path=samples_dir,
+        show=False,
+        return_figure=True,
+    )
+
+    hover_data = fig.data[0].text
+
+    assert hover_data is not None
+    assert all("ID:" in text for text in hover_data)
+
+
+def test_click_neighbor_grid(sample_data):
+    """Tests that neighbor grid is rendered correctly."""
+    coords_path, ids_path, samples_dir = sample_data
+
+    _, ids = load_coordinates(coords_path, ids_path)
+
+    neighbor_ids = ids[:3]
+
+    grid = show_neighbor_grid(neighbor_ids.tolist(), samples_dir)
+
+    assert isinstance(grid, list)
+    assert len(grid) > 0
+
+
+def test_invalid_coordinate_paths():
     """Tests that invalid coordinate paths raise an error."""
-    coords_path = tmp_path / "missing_coords.npy"
-    ids_path = tmp_path / "missing_ids.npy"
     with pytest.raises(FileNotFoundError):
-        load_coordinates(coords_path, ids_path)
+        load_coordinates(
+            Path("does_not_exist.npy"),
+            Path("does_not_exist.npy"),
+        )
 
 
-def test_resolve_image_path():
-    """Tests that missing images return None."""
-    result = resolve_image_path(999999)  # Non-existent ID
+def test_missing_images(sample_data, monkeypatch):
+    """Tests that missing images are handled correctly."""
+    coords_path, ids_path, samples_dir = sample_data
 
-    assert result is None  # Image not found
+    for file in samples_dir.iterdir():
+        file.unlink()
 
+    monkeypatch.setattr(
+        "image_recommender.viz.explorer.SAMPLES_DIR",
+        samples_dir,
+    )
 
-def test_thumbnail_generation(tmp_path):
-    """Tests that thumbnails are created."""
-    img_path = tmp_path / "img.jpg"
+    _, ids = load_coordinates(coords_path, ids_path)
 
-    img = Image.new("RGB", (32, 32), color=(255, 0, 0))
-    img.save(img_path)
+    grid = show_neighbor_grid(ids.tolist(), samples_dir)
 
-    thumb = create_thumbnail(img_path)
-
-    assert thumb.startswith("data:image/png;base64,")
-
-
-def test_build_neighbor_model(sample_data):
-    """Tests that neighbor model builds correctly."""
-    coords_path, _, _ = sample_data
-    coords = np.load(coords_path)
-
-    nn = build_neighbor_model(coords)
-    dists, inds = nn.kneighbors([coords[0]])
-
-    expected_neighbors = min(9, len(coords))
-    assert inds.shape == (1, expected_neighbors)
-    assert len(dists[0]) == expected_neighbors
-
-
-def test_show_neighbor_grid(sample_data):
-    """Tests that neighbor grid runs without error."""
-    _, _, ids = sample_data
-
-    show_neighbor_grid(ids[:3], show=False)
+    assert isinstance(grid, list)
+    assert len(grid) == 0

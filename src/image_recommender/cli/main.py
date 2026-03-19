@@ -187,6 +187,18 @@ def build_parser() -> ArgumentParser:
         required=True,
         help="Path to numpy array containing image IDs",
     )
+    cmd_explore.add_argument(
+        "--db-path",
+        type=str,
+        default=DB_PATH,
+        help="Path to database",
+    )
+    cmd_explore.add_argument(
+        "--k",
+        type=int,
+        default=5,
+        help="Number of nearest neighbors",
+    )
 
     return parser
 
