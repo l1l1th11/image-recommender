@@ -10,7 +10,6 @@ from dash import Dash, Input, Output, dcc, html
 from PIL import Image
 from sklearn.neighbors import NearestNeighbors
 
-from image_recommender.config import SAMPLES_DIR
 from image_recommender.db.connector import get_path_by_id
 
 
@@ -40,11 +39,8 @@ def load_coordinates(coords_path: Path, ids_path: Path) -> tuple[np.ndarray, np.
         elif isinstance(data, dict) and "ids" in data:
             ids = np.array(data["ids"])
 
-        elif isinstance(data, dict) and "n_points" in data:
-            ids = np.arange(data["n_points"])
-
         else:
-            raise ValueError(f"Unsupported metadata structure in {ids_path}")
+            raise ValueError(f"IDs must be explicitly provided in {ids_path}.")
 
     else:
         raise ValueError(f"Unsupported ID file format: {ids_path}")
@@ -54,6 +50,9 @@ def load_coordinates(coords_path: Path, ids_path: Path) -> tuple[np.ndarray, np.
 
     if coords.shape[1] != 2:
         raise ValueError("Coordinates must have shape (N,2)")
+
+    if not np.issubdtype(ids.dtype, np.integer):
+        raise ValueError("IDs must be integers!")
 
     return coords, ids
 
@@ -74,7 +73,11 @@ def show_neighbor_grid(neighbor_ids: list[int], db_path: Path) -> list:
     """
     images = []
     for img_id in neighbor_ids:
-        path = resolve_image_path(int(img_id), db_path)
+        try:
+            path = resolve_image_path(int(img_id), db_path)
+        except Exception as e:
+            logging.warning(f"No path for image_id={img_id}: {e}")
+            continue
 
         if path is None:
             continue
@@ -83,28 +86,45 @@ def show_neighbor_grid(neighbor_ids: list[int], db_path: Path) -> list:
             images.append(
                 html.Div(
                     [
-                        html.Div(f"ID: {img_id}", style={"textAlign": "center"}),
-                        html.Img(src=thumb, style={"width": "128px", "margin": "5px"}),
-                    ]
+                        html.Img(
+                            src=thumb,
+                            style={
+                                "width": "128px",
+                                "height": "128px",
+                                "objectFit": "cover",
+                                "margin": "5px",
+                            },
+                        ),
+                        html.Div(
+                            f"ID: {img_id}",
+                            style={
+                                "textAlign": "center",
+                                "fontSize": "12px",
+                            },
+                        ),
+                    ],
+                    style={
+                        "display": "inline-block",
+                        "textAlign": "center",
+                        "margin": "5px",
+                    },
                 )
             )
 
     return images
 
 
-def build_scatter(coords: np.ndarray, ids: np.ndarray, db_path: Path) -> go.Figure:
+def build_scatter(coords: np.ndarray, ids: np.ndarray) -> go.Figure:
     """
     Creates a Plotly ScatterGL figure for 2D embeddings.
     """
-    hover_data = build_hover_data(ids, db_path)
-
     fig = go.Figure(
         go.Scattergl(
             x=coords[:, 0],
             y=coords[:, 1],
             mode="markers",
             marker=dict(size=5, opacity=0.6),
-            text=hover_data,
+            text=[f"<b>ID:</b> {i}" for i in ids],
             hovertemplate="%{text}<extra></extra>",
         )
     )
@@ -135,25 +155,81 @@ def run_embedding_explorer(
 
     nn = build_neighbor_model(coords, k)
 
-    fig = build_scatter(coords, ids, db_path)
+    fig = build_scatter(coords, ids)
 
     app = Dash(__name__)
 
     app.layout = html.Div(
         [
             html.H2("Embedding Explorer"),
-            dcc.Graph(
-                id="scatter",
-                figure=fig,
-                style={"height": "70vh"},
-            ),
-            html.H3("Nearest Neighbors"),
             html.Div(
-                id="neighbors",
-                style={"display": "flex", "flexWrap": "wrap"},
+                [
+                    dcc.Graph(
+                        id="scatter",
+                        figure=fig,
+                        style={"height": "70vh", "width": "70%"},
+                    ),
+                    html.Div(
+                        [
+                            html.H3("Preview"),
+                            html.Img(
+                                id="hover-preview",
+                                style={"width": "100%", "maxHeight": "300px"},
+                            ),
+                        ],
+                        style={
+                            "width": "30%",
+                            "padding": "10px",
+                        },
+                    ),
+                ],
+                style={
+                    "display": "flex",
+                    "alignItems": "flex-start",
+                    "gap": "10px",
+                },
+            ),
+            html.Div(
+                [
+                    html.H3("Nearest Neighbors"),
+                    html.Div(
+                        id="neighbors",
+                        style={
+                            "display": "flex",
+                            "flexWrap": "wrap",
+                            "gap": "10px",
+                        },
+                    ),
+                ],
+                style={"marginTop": "0px"},
             ),
         ]
     )
+
+    @app.callback(
+        Output("hover-preview", "src"),
+        Input("scatter", "hoverData"),
+    )
+    def update_hover(hoverData):
+        if not hoverData or "points" not in hoverData:
+            return ""
+
+        idx = hoverData["points"][0].get("pointIndex")
+        if idx is None:
+            return ""
+
+        image_id = int(ids[idx])
+
+        try:
+            path = resolve_image_path(image_id, db_path)
+        except Exception:
+            logging.warning(f"Failed hover preview for {image_id}")
+            return ""
+
+        if path is None:
+            return ""
+
+        return create_thumbnail(path, size=256)
 
     @app.callback(
         Output("neighbors", "children"),
@@ -163,7 +239,9 @@ def run_embedding_explorer(
         if not clickData or "points" not in clickData:
             return html.Div("Click a point to see neighbors")
 
-        idx = clickData["points"][0]["pointIndex"]
+        idx = clickData["points"][0].get("pointIndex", None)
+        if idx is None:
+            return html.Div("Invalid selection")
 
         _, neighbors = nn.kneighbors([coords[idx]])
         neighbor_ids = ids[neighbors[0]]
@@ -175,33 +253,15 @@ def run_embedding_explorer(
         return show_neighbor_grid(neighbor_ids, db_path)
 
     if show:
-        app.run(debug=True)
+        app.run(debug=False)
 
     if return_figure:
         return fig
 
 
-def build_hover_data(ids: np.ndarray, db_path: Path) -> list[str]:
-    """
-    Generates simple hover text for embedding scatter plot.
-    """
-    hover = []
-
-    for image_id in ids:
-        path = resolve_image_path(int(image_id), db_path)
-
-        if path is None:
-            hover.append(f"<b>ID:</b> {image_id}<br>No image")
-            continue
-
-        hover.append(f"<b>ID:</b> {image_id}<br>Path: {path}")
-
-    return hover
-
-
 def resolve_image_path(image_id: int, db_path: Path) -> Path | None:
     """
-    Resolves image path from database or sample directory.
+    Resolves image path from database.
     """
     try:
         path = get_path_by_id(image_id, db_path)
@@ -211,10 +271,6 @@ def resolve_image_path(image_id: int, db_path: Path) -> Path | None:
                 return p
     except Exception as e:
         logging.warning(f"DB lookup failed for {image_id}: {e}")
-
-    sample = SAMPLES_DIR / f"{image_id}.jpg"
-    if sample.exists():
-        return sample
 
     return None
 

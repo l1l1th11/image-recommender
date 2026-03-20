@@ -26,14 +26,14 @@ def sample_data(tmp_path, monkeypatch):
     samples_dir = tmp_path / "samples"
     samples_dir.mkdir()
 
-    monkeypatch.setattr(
-        "image_recommender.viz.explorer.SAMPLES_DIR",
-        samples_dir,
-    )
-
     for img_id in ids:
         img = Image.new("RGB", (32, 32), color=(100, 0, 0))
         img.save(samples_dir / f"{img_id}.jpg")
+
+    monkeypatch.setattr(
+        "image_recommender.viz.explorer.get_path_by_id",
+        lambda image_id, _: str(samples_dir / f"{image_id}.jpg"),
+    )
 
     return coords_path, ids_path, samples_dir
 
@@ -114,8 +114,8 @@ def test_missing_images(sample_data, monkeypatch):
         file.unlink()
 
     monkeypatch.setattr(
-        "image_recommender.viz.explorer.SAMPLES_DIR",
-        samples_dir,
+        "image_recommender.viz.explorer.get_path_by_id",
+        lambda _, __: None,
     )
 
     _, ids = load_coordinates(coords_path, ids_path)
