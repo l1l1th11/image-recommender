@@ -8,3 +8,6 @@ dependencies:
   - pytest
   - umap-learn
   - matplotlib
+  - scikit-learn
+  - plotly
+  - dash
