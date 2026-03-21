@@ -7,3 +7,5 @@ dependencies:
   - pillow
   - pytest
   - annoy
+  - umap-learn
+  - matplotlib
