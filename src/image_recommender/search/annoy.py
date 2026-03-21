@@ -63,11 +63,11 @@ class AnnoySearchBackend:
         safe_metric = re.sub(
             r"[^a-zA-Z0-9_-]", "_", self.metric
         )  # sanitize metric name for filename
-        config_hash = f"{safe_metric}_{self.n_trees}_{self.search_k}"
+        config_key = f"{safe_metric}_{self.n_trees}_{self.search_k}"
 
-        self.index_path = self.index_dir / f"index_{config_hash}.ann"
-        self.mapping_path = self.index_dir / f"id_mapping_{config_hash}.npy"
-        self.meta_path = self.index_dir / f"metadata_{config_hash}.json"
+        self.index_path = self.index_dir / f"index_{config_key}.ann"
+        self.mapping_path = self.index_dir / f"id_mapping_{config_key}.npy"
+        self.meta_path = self.index_dir / f"metadata_{config_key}.json"
 
         self._index: AnnoyIndex | None = None
         self._id_mapping: np.ndarray = np.array([], dtype=np.int32)
@@ -109,7 +109,6 @@ class AnnoySearchBackend:
                 feature_type=self.feature_type,
                 shard_id=shard_id,
             )
-            features = features.astype(np.float32)
             shard_ids = np.array(shard_ids, dtype=np.int32)
 
             valid_mask = np.linalg.norm(features, axis=1) != 0
@@ -247,8 +246,7 @@ class AnnoySearchBackend:
         if len(indices) != self.k:
             raise RuntimeError("Annoy returned fewer results than k!")
 
-        pairs = sorted(zip(indices, distances, strict=True), key=lambda x: x[1])
-        ids = np.array([self._id_mapping[i] for i, _ in pairs], dtype=np.int32)
-        dists = np.array([d for _, d in pairs], dtype=np.float32)
+        ids = np.array([self._id_mapping[i] for i in indices], dtype=np.int32)
+        dists = np.array(distances, dtype=np.float32)
 
         return ids, dists

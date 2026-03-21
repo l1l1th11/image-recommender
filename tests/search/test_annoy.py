@@ -1,6 +1,5 @@
 import json
 import time
-from pathlib import Path
 
 import numpy as np
 import pytest
@@ -52,9 +51,9 @@ def annoy_backend(dummy_data):
 @pytest.mark.integration
 def test_index_files_created(annoy_backend):
     """Tests that index files are created."""
-    assert isinstance(annoy_backend.index_path, Path)
-    assert isinstance(annoy_backend.mapping_path, Path)
-    assert isinstance(annoy_backend.meta_path, Path)
+    assert annoy_backend.index_path.exists()
+    assert annoy_backend.mapping_path.exists()
+    assert annoy_backend.meta_path.exists()
 
 
 @pytest.mark.integration

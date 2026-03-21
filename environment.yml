@@ -6,3 +6,4 @@ dependencies:
   - numpy
   - pillow
   - pytest
+  - annoy
