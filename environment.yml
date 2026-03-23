@@ -1,6 +1,9 @@
 name: image_recommender
+
 channels:
-  - conda-forge
+  - pytorch
+  - defaults
+
 dependencies:
   - python=3.12
   - numpy
@@ -9,3 +12,9 @@ dependencies:
   - annoy
   - umap-learn
   - matplotlib
+  - pytorch
+  - torchvision
+  - umap-learn
+  - pip
+  - pip:
+      - pre-commit
