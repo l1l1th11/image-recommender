@@ -9,6 +9,8 @@ dependencies:
   - numpy
   - pillow
   - pytest
+  - annoy
+  - umap-learn
   - matplotlib
   - pytorch
   - torchvision
