@@ -3,16 +3,14 @@ from pathlib import Path
 
 import numpy as np
 
+import image_recommender.features.samples_driver_embedding as embedding_driver
+import image_recommender.features.samples_driver_phash as phash_driver
 from image_recommender.config import SAMPLES_DIR
 from image_recommender.constants import IMAGE_EXTS
 from image_recommender.db.pilot import create_pilot_set
 from image_recommender.features.embedding import extract_embeddings_batch
 from image_recommender.features.extraction_pipeline import run_extraction
-from image_recommender.features.samples_driver_embedding import (
-    compute_topk,
-    load_sample_images,
-    print_results,
-)
+from image_recommender.features.phash import extract_phashes
 from image_recommender.features.samples_driver_hsv import topk_on_samples
 from image_recommender.util.sampler import list_samples
 from image_recommender.viz.explorer import run_embedding_explorer
@@ -122,7 +120,7 @@ def handle_embedding_on_samples(args) -> int:
     Handles the "embedding-on-samples" CLI command.
     """
     samples_dir = Path("data/samples")
-    ids, images = load_sample_images(samples_dir)
+    ids, images = embedding_driver.load_sample_images(samples_dir)
 
     embeddings = extract_embeddings_batch(
         images,
@@ -131,7 +129,7 @@ def handle_embedding_on_samples(args) -> int:
         pretrained=bool(args.pretrained),
     )
 
-    results = compute_topk(ids, embeddings, k=args.k)
+    results = embedding_driver.compute_topk(ids, embeddings, k=args.k)
 
     for i, neighbors in enumerate(results):
         top_id, top_dist = neighbors[0]
@@ -139,7 +137,28 @@ def handle_embedding_on_samples(args) -> int:
             print(f"Self-match failed for {ids[i]}")
             return 1
 
-    print_results(ids, results)
+    embedding_driver.print_results(ids, results)
+    return 0
+
+
+def handle_phash_on_samples(args) -> int:
+    """
+    Handles the "phash-on-samples" CLI command.
+    """
+    samples_dir = SAMPLES_DIR
+    ids, images = phash_driver.load_sample_images(samples_dir=samples_dir)
+
+    phashes = extract_phashes(imgs_rgb=images)
+
+    results = phash_driver.compute_topk(ids=ids, phashes=phashes, k=args.k)
+
+    for i, neighbors in enumerate(results):
+        top_id, top_dist = neighbors[0]
+        if top_id != ids[i]:
+            print(f"Self match failed for {ids[i]}")
+            return 1
+
+    phash_driver.print_results(ids=ids, results=results)
     return 0
 
 
