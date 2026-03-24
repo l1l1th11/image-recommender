@@ -48,3 +48,28 @@ def extract_phash(img_rgb: np.ndarray) -> np.ndarray:
     binary_vector = binary_vector.astype(np.uint8)
 
     return binary_vector
+
+
+def extract_phashes(
+    imgs_rgb: list[np.ndarray],
+) -> np.ndarray:
+    """
+    Extracts perceptual hashes for multiple RGB images in batches.
+    Input: list of rgb images as numpy arrays of shape (H, W, 3), dtype uint8
+    Output: numpy array (N, 64), dtype = uint8
+    """
+    # return empty array if imgs_rgb is empty
+    if not imgs_rgb:
+        return np.empty((0, 64), dtype=np.uint8)
+
+    binary_vectors = []
+
+    # extract all hashes
+    for img in imgs_rgb:
+        binary_vector = extract_phash(img_rgb=img)
+        binary_vectors.append(binary_vector)
+
+    # stack
+    matrix = np.vstack(binary_vectors).astype(np.uint8)
+
+    return matrix

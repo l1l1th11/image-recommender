@@ -1,13 +1,32 @@
 name: image_recommender
+
 channels:
-  - conda-forge
+  - pytorch
+  - defaults
+
 dependencies:
   - python=3.12
+
+  # core
   - numpy
   - pillow
-  - pytest
+
+  # features
+  - annoy
   - umap-learn
-  - matplotlib
   - scikit-learn
+  - pytorch
+  - torchvision
+
+  # visualization
+  - matplotlib
   - plotly
   - dash
+
+  # testing
+  - pytest
+
+  # tooling
+  - pip
+  - pip:
+      - pre-commit

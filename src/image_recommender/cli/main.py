@@ -15,6 +15,7 @@ from .commands import (
     handle_list_samples,
     handle_make_pilot,
     handle_map_embeddings,
+    handle_phash_on_samples,
 )
 
 
@@ -88,6 +89,13 @@ def build_parser() -> ArgumentParser:
     cmd_embed.add_argument("--model", type=str, default="resnet18")
     cmd_embed.add_argument("--device", type=str, default="cpu")
     cmd_embed.add_argument("--pretrained", type=int, default=0)
+
+    # phash on samples command
+    cmd_phash = subparsers.add_parser(
+        "phash-on-samples", help="Compute top-k perceptual hash neighbors over samples"
+    )
+    cmd_phash.set_defaults(run=handle_phash_on_samples)
+    cmd_phash.add_argument("--k", type=int, default=5)
 
     # extraction pipeline command
     cmd_extract = subparsers.add_parser(
