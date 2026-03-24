@@ -173,6 +173,15 @@ def handle_explore_map(args) -> int:
             k=args.k,
         )
         return 0
+
+    except FileNotFoundError as e:
+        logging.error(f"File not found: {e}")
+        return 1
+
+    except ValueError as e:
+        logging.error(f"Invalid data: {e}")
+        return 1
+
     except Exception:
         logging.error("Explorer failed", exc_info=True)
         return 1
