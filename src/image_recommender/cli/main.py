@@ -188,6 +188,12 @@ def build_parser() -> ArgumentParser:
         help="Path to numpy array containing image IDs",
     )
     cmd_explore.add_argument(
+        "--embeddings",
+        type=str,
+        required=True,
+        help="Path to embedding shards directory",
+    )
+    cmd_explore.add_argument(
         "--db-path",
         type=str,
         default=DB_PATH,
