@@ -191,12 +191,16 @@ def run_embedding_explorer(
     """
     coords, ids = load_coordinates(coords_path, ids_path)
 
+    if not embeddings_path.exists():
+        raise FileNotFoundError(f"Embeddings path not found: {embeddings_path}")
+
     embeddings, emb_ids = load_embeddings_from_shards(embeddings_path)
 
     id_to_idx = {int(i): idx for idx, i in enumerate(emb_ids)}
 
     try:
-        embeddings = np.array([embeddings[id_to_idx[int(i)]] for i in ids])
+        idxs = np.array([id_to_idx[int(i)] for i in ids])
+        embeddings = embeddings[idxs]
     except KeyError as e:
         raise ValueError(f"ID {e} from coords not found in embeddings!") from e
 
