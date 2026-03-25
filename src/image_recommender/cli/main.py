@@ -9,6 +9,7 @@ from image_recommender.util.logs import setup_basic_logging
 
 from .commands import (
     handle_embedding_on_samples,
+    handle_explore_map,
     handle_extract_features,
     handle_hsv_on_samples,
     handle_list_samples,
@@ -173,6 +174,44 @@ def build_parser() -> ArgumentParser:
         type=int,
         default=DR_SAMPLE_SIZE,
         help="Optional number of embeddings to sample for UMAP projection",
+    )
+
+    # explore map command
+    cmd_explore = subparsers.add_parser(
+        "explore-map",
+        help="Launch interactive embedding explorer",
+        description="Interactive visualization for exploring embedding layouts",
+    )
+    cmd_explore.set_defaults(run=handle_explore_map)
+    cmd_explore.add_argument(
+        "--coords",
+        type=str,
+        required=True,
+        help="Path to coordinate npy file (N,2)",
+    )
+    cmd_explore.add_argument(
+        "--ids",
+        type=str,
+        required=True,
+        help="Path to numpy array containing image IDs",
+    )
+    cmd_explore.add_argument(
+        "--embeddings",
+        type=str,
+        required=True,
+        help="Path to embedding shards directory",
+    )
+    cmd_explore.add_argument(
+        "--db-path",
+        type=str,
+        default=DB_PATH,
+        help="Path to database",
+    )
+    cmd_explore.add_argument(
+        "--k",
+        type=int,
+        default=5,
+        help="Number of nearest neighbors",
     )
 
     return parser

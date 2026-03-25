@@ -13,6 +13,7 @@ from image_recommender.features.extraction_pipeline import run_extraction
 from image_recommender.features.phash import extract_phashes
 from image_recommender.features.samples_driver_hsv import topk_on_samples
 from image_recommender.util.sampler import list_samples
+from image_recommender.viz.explorer import run_embedding_explorer
 from image_recommender.viz.map_embeddings import run_map_embeddings
 
 
@@ -175,4 +176,31 @@ def handle_map_embeddings(args) -> int:
         return 0
     except Exception as e:
         logging.error(f"Embedding mapping failed: {e}", exc_info=True)
+        return 1
+
+
+def handle_explore_map(args) -> int:
+    """
+    Handles the "explore-map" CLI command.
+    """
+    try:
+        run_embedding_explorer(
+            coords_path=Path(args.coords),
+            ids_path=Path(args.ids),
+            embeddings_path=Path(args.embeddings),
+            db_path=Path(args.db_path),
+            k=args.k,
+        )
+        return 0
+
+    except FileNotFoundError as e:
+        logging.error(f"File not found: {e}")
+        return 1
+
+    except ValueError as e:
+        logging.error(f"Invalid data: {e}")
+        return 1
+
+    except Exception:
+        logging.error("Explorer failed", exc_info=True)
         return 1

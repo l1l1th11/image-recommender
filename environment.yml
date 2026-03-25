@@ -6,15 +6,27 @@ channels:
 
 dependencies:
   - python=3.12
+
+  # core
   - numpy
   - pillow
-  - pytest
+
+  # features
   - annoy
   - umap-learn
-  - matplotlib
+  - scikit-learn
   - pytorch
   - torchvision
-  - umap-learn
+
+  # visualization
+  - matplotlib
+  - plotly
+  - dash
+
+  # testing
+  - pytest
+
+  # tooling
   - pip
   - pip:
       - pre-commit
