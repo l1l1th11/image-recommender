@@ -16,6 +16,7 @@ from .commands import (
     handle_make_pilot,
     handle_map_embeddings,
     handle_phash_on_samples,
+    handle_run_experiment,
 )
 
 
@@ -212,6 +213,19 @@ def build_parser() -> ArgumentParser:
         type=int,
         default=5,
         help="Number of nearest neighbors",
+    )
+
+    # run experiment command
+    cmd_exp = subparsers.add_parser(
+        "run-experiment",
+        help="Run visualization experiment pipeline",
+    )
+    cmd_exp.set_defaults(run=handle_run_experiment)
+    cmd_exp.add_argument(
+        "--config",
+        required=True,
+        choices=["pilot", "medium", "full"],
+        help="Experiment configuration",
     )
 
     return parser

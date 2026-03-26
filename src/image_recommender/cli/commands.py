@@ -5,6 +5,7 @@ import numpy as np
 
 import image_recommender.features.samples_driver_embedding as embedding_driver
 import image_recommender.features.samples_driver_phash as phash_driver
+from experiments.runner import run_experiment
 from image_recommender.config import SAMPLES_DIR
 from image_recommender.constants import IMAGE_EXTS
 from image_recommender.db.pilot import create_pilot_set
@@ -203,4 +204,17 @@ def handle_explore_map(args) -> int:
 
     except Exception:
         logging.error("Explorer failed", exc_info=True)
+        return 1
+
+
+def handle_run_experiment(args) -> int:
+    """
+    Handles the "run-experiment" CLI command.
+    """
+    try:
+        run_experiment(config_name=args.config)
+        return 0
+
+    except Exception:
+        logging.error("Experiment failed", exc_info=True)
         return 1

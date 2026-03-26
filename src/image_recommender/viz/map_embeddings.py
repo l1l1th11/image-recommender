@@ -15,6 +15,7 @@ def run_map_embeddings(
     feature_type: str,
     dims: int,
     sample_size: int | None,
+    output_dir: Path | None = None,
 ) -> None:
     """
     Maps embeddings to 2D or 3D space.
@@ -24,6 +25,7 @@ def run_map_embeddings(
     - feature_type (Which feature type should be projected?)
     - dims (Target projection dimensionality: 2 or 3?)
     - sample_size (How many embeddings should be sampled before projection?)
+    - output_dir (Where should the output be stored?)
 
     Outputs:
     - UMAP coordinates
@@ -83,7 +85,7 @@ def run_map_embeddings(
     logging.info(f"Generated coordinates with shape {coords.shape}")
 
     # output directory
-    out_dir = run_dir / feature_type / "viz"
+    out_dir = output_dir
     out_dir.mkdir(parents=True, exist_ok=True)
 
     # save coordinates

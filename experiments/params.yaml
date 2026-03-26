@@ -1,0 +1,17 @@
+pilot:
+  run_dir: data/features/pilot
+  feature_type: embedding
+  sample_size: 1000
+  dims: [2, 3]
+
+medium:
+  run_dir: data/features/pilot
+  feature_type: embedding
+  sample_size: 100000
+  dims: [2, 3]
+
+full:
+  run_dir: data/features/pilot
+  feature_type: embedding
+  sample_size: null
+  dims: [2, 3]
