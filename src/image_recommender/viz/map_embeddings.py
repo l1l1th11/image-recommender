@@ -125,3 +125,5 @@ def run_map_embeddings(
         plot_3d(coords, title="UMAP projection", run_dir=out_dir, filename=preview_name)
 
     logging.info("Preview plot generated")
+
+    return coords

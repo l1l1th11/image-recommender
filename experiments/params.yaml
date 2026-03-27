@@ -3,15 +3,18 @@ pilot:
   feature_type: embedding
   sample_size: 1000
   dims: [2, 3]
+  n_clusters: 10
 
 medium:
   run_dir: data/features/pilot
   feature_type: embedding
   sample_size: 100000
   dims: [2, 3]
+  n_clusters: 20
 
 full:
   run_dir: data/features/pilot
   feature_type: embedding
   sample_size: null
   dims: [2, 3]
+  n_clusters: 30

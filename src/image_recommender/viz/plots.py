@@ -34,6 +34,7 @@ def plot_2d(
     alpha: float = 0.8,
     run_dir: str | None = None,
     filename: str = "plot_2d.png",
+    labels: np.ndarray | None = None,
 ) -> plt.Figure:
     """
     Generates a 2D scatter plot from coordinates (N,2) and optionally saves it.
@@ -51,7 +52,12 @@ def plot_2d(
     validate_coordinates(coords, 2)
 
     fig, ax = plt.subplots(figsize=(6, 6))
-    ax.scatter(coords[:, 0], coords[:, 1], s=point_size, alpha=alpha, color=POINT_COLOR)
+
+    if labels is not None:
+        ax.scatter(coords[:, 0], coords[:, 1], s=point_size, alpha=alpha, c=labels, cmap="tab20")
+    else:
+        ax.scatter(coords[:, 0], coords[:, 1], s=point_size, alpha=alpha, color=POINT_COLOR)
+
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
     ax.set_title(title or "2D Plot")
@@ -79,6 +85,7 @@ def plot_3d(
     alpha: float = 0.8,
     run_dir: str | None = None,
     filename: str = "plot_3d.png",
+    labels: np.ndarray | None = None,
 ) -> plt.Figure:
     """
     Generates a 3D scatter plot from coordinates (N,3) and optionally saves it.
@@ -97,9 +104,22 @@ def plot_3d(
 
     fig = plt.figure(figsize=(6, 6))
     ax = fig.add_subplot(111, projection="3d")
-    ax.scatter(
-        coords[:, 0], coords[:, 1], coords[:, 2], s=point_size, alpha=alpha, color=POINT_COLOR
-    )
+
+    if labels is not None:
+        ax.scatter(
+            coords[:, 0],
+            coords[:, 1],
+            coords[:, 2],
+            s=point_size,
+            alpha=alpha,
+            c=labels,
+            cmap="tab20",
+        )
+    else:
+        ax.scatter(
+            coords[:, 0], coords[:, 1], coords[:, 2], s=point_size, alpha=alpha, color=POINT_COLOR
+        )
+
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
     ax.set_zlabel(zlabel)
