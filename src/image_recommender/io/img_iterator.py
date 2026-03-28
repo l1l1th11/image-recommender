@@ -3,7 +3,7 @@ from pathlib import Path
 
 import numpy as np
 
-from image_recommender.config import PILOT_IDS_CSV
+from image_recommender.config import PILOT_IDS_CSV, SAMPLES_DIR
 from image_recommender.db.connector import get_path_by_id, iter_id_paths
 from image_recommender.db.pilot import load_ids_pilot
 from image_recommender.io.img_loader import load_rgb
@@ -145,3 +145,58 @@ def iter_id_images_from_pilot(
                     raise ImageLoadError(msg) from e
 
             yield image_id, img_array
+
+
+# ---------------------------- Samples Run ---------------------------------
+
+
+def iter_id_images_from_samples(
+    samples_path: str | Path = SAMPLES_DIR,
+    policy: str = "skip_and_log",
+) -> Iterator[tuple[int, np.ndarray]]:
+    """
+    Yields pairs of image_id and img_array (from samples directory).
+    ImageLoadError message includes image_id | path | reason.
+    """
+    # catch wrong input
+    if policy not in {"skip_and_log", "raise"}:
+        raise ValueError("policy must be either skip_and_log or raise")
+
+    # collect paths from samples/
+    samples_path = Path(samples_path)
+    paths = []
+    for path in samples_path.iterdir():
+        if path.is_file():
+            paths.append(path)
+
+    # log warning if samples dir is empty
+    if len(paths) == 0:
+        log.warning("Samples directory is empty")
+        return
+
+    # sort paths by filename
+    sorted_paths = sorted(paths, key=lambda path: path.name)
+
+    # produce id path pairs
+    for image_id, path in enumerate(sorted_paths):
+
+        # load image
+        try:
+            img_array = load_rgb(path)
+
+        except ImageLoadError as e:
+
+            # log on error
+            if policy == "skip_and_log":
+                loader_msg = str(e)
+                msg = f"{image_id} | {loader_msg}"
+                log.error(msg)
+                continue
+
+            # raise on error
+            elif policy == "raise":
+                loader_msg = str(e)
+                msg = f"{image_id} | {loader_msg}"
+                raise ImageLoadError(msg) from e
+
+        yield image_id, img_array
