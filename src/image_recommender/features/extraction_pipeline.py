@@ -5,7 +5,11 @@ from pathlib import Path
 
 import numpy as np
 
-from image_recommender.config import DEFAULT_FULL_SHARD_SIZE, DEFAULT_PILOT_SHARD_SIZE
+from image_recommender.config import (
+    DEFAULT_FULL_SHARD_SIZE,
+    DEFAULT_PILOT_SHARD_SIZE,
+    SAMPLES_DIR,
+)
 from image_recommender.constants import SUPPORTED_FEATURES
 from image_recommender.db.connector import count_images
 from image_recommender.db.pilot import load_ids_pilot
@@ -20,6 +24,7 @@ from image_recommender.features.storage import (
 from image_recommender.io.img_iterator import (
     iter_id_images_from_db,
     iter_id_images_from_pilot,
+    iter_id_images_from_samples,
 )
 from image_recommender.util.logs import get_logger
 
@@ -41,8 +46,8 @@ def run_extraction(
     # validate inputs
     if feature_type not in SUPPORTED_FEATURES:
         raise ValueError(f"Unsupported feature type. Supported: {', '.join(SUPPORTED_FEATURES)}")
-    elif input_mode not in {"pilot", "db"}:
-        raise ValueError("Unsupported input mode. Supported: pilot, db")
+    elif input_mode not in {"samples", "pilot", "db"}:
+        raise ValueError("Unsupported input mode. Supported: samples, pilot, db")
 
     # ensure run dir exists
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -55,7 +60,13 @@ def run_extraction(
             shard_size = DEFAULT_FULL_SHARD_SIZE
 
     # get number of total items
-    if input_mode == "pilot":
+    if input_mode == "samples":
+        img_paths = []
+        for path in SAMPLES_DIR.iterdir():
+            if path.is_file():
+                img_paths.append(path)
+        total_imgs = len(img_paths)
+    elif input_mode == "pilot":
         total_imgs = len(load_ids_pilot(pilot_path=pilot_path))
     else:
         total_imgs = count_images(db_path=db_path)
@@ -204,7 +215,9 @@ def iterator_wrapper(
     input_mode: str, start: int, stop: int, pilot_path: Path, db_path: Path, policy: str
 ) -> Iterator[tuple[int, np.ndarray]]:
     # select iterator
-    if input_mode == "pilot":
+    if input_mode == "samples":
+        return iter_id_images_from_samples(policy=policy)
+    elif input_mode == "pilot":
         return iter_id_images_from_pilot(
             start=start, stop=stop, pilot_path=pilot_path, db_path=db_path, policy=policy
         )
