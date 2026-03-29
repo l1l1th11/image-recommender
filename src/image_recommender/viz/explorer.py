@@ -150,7 +150,9 @@ def show_neighbor_grid(neighbor_ids: list[int], db_path: Path) -> list:
     return images
 
 
-def build_scatter(coords: np.ndarray, ids: np.ndarray) -> go.Figure:
+def build_scatter(
+    coords: np.ndarray, ids: np.ndarray, clusters: np.ndarray | None = None
+) -> go.Figure:
     """
     Creates a Plotly ScatterGL figure for 2D embeddings.
     """
@@ -159,7 +161,12 @@ def build_scatter(coords: np.ndarray, ids: np.ndarray) -> go.Figure:
             x=coords[:, 0],
             y=coords[:, 1],
             mode="markers",
-            marker=dict(size=5, opacity=0.6),
+            marker=dict(
+                size=5,
+                opacity=0.6,
+                color=clusters if clusters is not None else None,
+                colorscale="portland" if clusters is not None else None,
+            ),
             text=[f"<b>ID:</b> {i}" for i in ids],
             hovertemplate="%{text}<extra></extra>",
         )
@@ -178,6 +185,7 @@ def run_embedding_explorer(
     k: int = 5,
     show: bool = True,
     return_figure: bool = False,
+    cluster_path: Path | None = None,
 ) -> go.Figure | None:
     """
     Launches interactive embedding explorer.
@@ -190,6 +198,13 @@ def run_embedding_explorer(
     Output: figure
     """
     coords, ids = load_coordinates(coords_path, ids_path)
+
+    clusters = None
+    if cluster_path is not None and cluster_path.exists():
+        clusters = np.load(cluster_path)
+
+        if len(clusters) != len(coords):
+            raise ValueError("Cluster labels and coordinates length mismatch!")
 
     if not embeddings_path.exists():
         raise FileNotFoundError(f"Embeddings path not found: {embeddings_path}")
@@ -209,7 +224,7 @@ def run_embedding_explorer(
 
     nn = build_neighbor_model(embeddings, k)
 
-    fig = build_scatter(coords, ids)
+    fig = build_scatter(coords, ids, clusters)
 
     app = Dash(__name__)
 

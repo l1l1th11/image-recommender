@@ -214,6 +214,12 @@ def build_parser() -> ArgumentParser:
         default=5,
         help="Number of nearest neighbors",
     )
+    cmd_explore.add_argument(
+        "--clusters",
+        type=str,
+        default=None,
+        help="Path to cluster labels (.npy) for coloring",
+    )
 
     # run experiment command
     cmd_exp = subparsers.add_parser(

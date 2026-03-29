@@ -191,6 +191,7 @@ def handle_explore_map(args) -> int:
             embeddings_path=Path(args.embeddings),
             db_path=Path(args.db_path),
             k=args.k,
+            cluster_path=Path(args.clusters),
         )
         return 0
 
