@@ -11,8 +11,7 @@ dependencies:
   - numpy
   - pillow
 
-  # features
-  - annoy
+  # features (conda supported only)
   - umap-learn
   - scikit-learn
   - pytorch
@@ -26,7 +25,8 @@ dependencies:
   # testing
   - pytest
 
-  # tooling
+  # packages not available via conda
   - pip
   - pip:
       - pre-commit
+      - annoy

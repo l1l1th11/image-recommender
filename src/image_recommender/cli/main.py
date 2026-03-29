@@ -115,8 +115,8 @@ def build_parser() -> ArgumentParser:
         "--input-mode",
         type=str,
         required=True,
-        choices=("pilot", "db"),
-        help="Available modes: pilot, db",
+        choices=("samples", "pilot", "db"),
+        help="Available modes: samples, pilot, db",
     )
     cmd_extract.add_argument(
         "--run-dir",
