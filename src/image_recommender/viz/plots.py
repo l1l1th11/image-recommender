@@ -27,11 +27,11 @@ POINT_COLOR = (0.86, 0, 0.33)
 
 def plot_2d(
     coords: np.ndarray,
+    point_size: float,
+    alpha: float,
     title: str | None = None,
     xlabel: str = "X",
     ylabel: str = "Y",
-    point_size: float = 20.0,
-    alpha: float = 0.8,
     run_dir: str | None = None,
     filename: str = "plot_2d.png",
     labels: np.ndarray | None = None,
@@ -77,12 +77,12 @@ def plot_2d(
 
 def plot_3d(
     coords: np.ndarray,
+    point_size: float,
+    alpha: float,
     title: str | None = None,
     xlabel: str = "X",
     ylabel: str = "Y",
     zlabel: str = "Z",
-    point_size: float = 20.0,
-    alpha: float = 0.8,
     run_dir: str | None = None,
     filename: str = "plot_3d.png",
     labels: np.ndarray | None = None,

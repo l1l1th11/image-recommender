@@ -15,6 +15,8 @@ def run_map_embeddings(
     feature_type: str,
     dims: int,
     sample_size: int | None,
+    umap_params: dict,
+    config: dict,
     output_dir: Path | None = None,
 ) -> None:
     """
@@ -74,13 +76,11 @@ def run_map_embeddings(
     # UMAP
     logging.info("Running UMAP projection")
 
-    n_neighbors = min(15, len(embeddings) - 1)
+    umap_args = umap_params.copy()
+    n_neighbors = min(umap_args.get("n_neighbors", 15), len(embeddings) - 1)
+    umap_args["n_neighbors"] = n_neighbors
 
-    coords = compute_umap(
-        embeddings,
-        n_components=dims,
-        n_neighbors=n_neighbors,
-    )
+    coords = compute_umap(embeddings, n_components=dims, **umap_args)
 
     logging.info(f"Generated coordinates with shape {coords.shape}")
 
@@ -120,9 +120,23 @@ def run_map_embeddings(
     preview_name = f"preview_{dims}d.png"
 
     if dims == 2:
-        plot_2d(coords, title="UMAP projection", run_dir=out_dir, filename=preview_name)
+        plot_2d(
+            coords,
+            point_size=config["point_size"],
+            alpha=config["alpha"],
+            title="UMAP projection",
+            run_dir=out_dir,
+            filename=preview_name,
+        )
     else:
-        plot_3d(coords, title="UMAP projection", run_dir=out_dir, filename=preview_name)
+        plot_3d(
+            coords,
+            point_size=config["point_size"],
+            alpha=config["alpha"],
+            title="UMAP projection",
+            run_dir=out_dir,
+            filename=preview_name,
+        )
 
     logging.info("Preview plot generated")
 

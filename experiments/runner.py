@@ -58,7 +58,9 @@ def run_experiment(config_name: str) -> None:
             feature_type=cfg["feature_type"],
             dims=dims,
             sample_size=cfg["sample_size"],
+            umap_params=cfg["umap"],
             output_dir=experiment_viz_dir,
+            config=cfg,
         )
 
         cluster_labels = compute_kmeans(coords, n_clusters=cfg["n_clusters"])
@@ -71,6 +73,8 @@ def run_experiment(config_name: str) -> None:
             plot_2d(
                 coords,
                 title=f"UMAP {dims}D clusters",
+                point_size=cfg["point_size"],
+                alpha=cfg["alpha"],
                 run_dir=experiment_viz_dir,
                 filename=plot_filename,
                 labels=cluster_labels,
@@ -79,6 +83,8 @@ def run_experiment(config_name: str) -> None:
             plot_3d(
                 coords,
                 title=f"UMAP {dims}D clusters",
+                point_size=cfg["point_size"],
+                alpha=cfg["alpha"],
                 run_dir=experiment_viz_dir,
                 filename=plot_filename,
                 labels=cluster_labels,

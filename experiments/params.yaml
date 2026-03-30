@@ -3,18 +3,44 @@ pilot:
   feature_type: embedding
   sample_size: 1000
   dims: [2, 3]
+
+  umap:
+    n_neighbors: 15
+    min_dist: 0.1
+
   n_clusters: 10
+
+  point_size: 20.0
+  alpha: 0.8
+
 
 medium:
   run_dir: data/features/pilot
   feature_type: embedding
   sample_size: 100000
   dims: [2, 3]
+
+  umap:
+    n_neighbors: 15
+    min_dist: 0.1
+
   n_clusters: 20
+
+  point_size: 20.0
+  alpha: 0.8
+
 
 full:
   run_dir: data/features/pilot
   feature_type: embedding
   sample_size: null
   dims: [2, 3]
+
+  umap:
+    n_neighbors: 15
+    min_dist: 0.1
+
   n_clusters: 30
+
+  point_size: 20.0
+  alpha: 0.8
