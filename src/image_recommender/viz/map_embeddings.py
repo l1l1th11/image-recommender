@@ -7,7 +7,6 @@ import numpy as np
 from image_recommender.config import DR_SEED
 from image_recommender.features.storage import read_validate_shard
 from image_recommender.viz.dr import compute_umap
-from image_recommender.viz.plots import plot_2d, plot_3d
 
 
 def run_map_embeddings(
@@ -16,9 +15,8 @@ def run_map_embeddings(
     dims: int,
     sample_size: int | None,
     umap_params: dict,
-    config: dict,
     output_dir: Path | None = None,
-) -> None:
+) -> np.ndarray:
     """
     Maps embeddings to 2D or 3D space.
 
@@ -85,6 +83,9 @@ def run_map_embeddings(
     logging.info(f"Generated coordinates with shape {coords.shape}")
 
     # output directory
+    if output_dir is None:
+        raise ValueError("output_dir must be provided!")
+
     out_dir = output_dir
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -115,29 +116,5 @@ def run_map_embeddings(
         json.dump(metadata, f, indent=2)
 
     logging.info(f"Saved metadata: {meta_path}")
-
-    # preview plot
-    preview_name = f"preview_{dims}d.png"
-
-    if dims == 2:
-        plot_2d(
-            coords,
-            point_size=config["point_size"],
-            alpha=config["alpha"],
-            title="UMAP projection",
-            run_dir=out_dir,
-            filename=preview_name,
-        )
-    else:
-        plot_3d(
-            coords,
-            point_size=config["point_size"],
-            alpha=config["alpha"],
-            title="UMAP projection",
-            run_dir=out_dir,
-            filename=preview_name,
-        )
-
-    logging.info("Preview plot generated")
 
     return coords
