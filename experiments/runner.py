@@ -6,6 +6,7 @@ import yaml
 
 from image_recommender.config import DR_SEED
 from image_recommender.viz.clustering import compute_kmeans
+from image_recommender.viz.dr import compute_umap
 from image_recommender.viz.map_embeddings import run_map_embeddings
 from image_recommender.viz.plots import plot_2d, plot_3d
 
@@ -54,17 +55,40 @@ def run_experiment(config_name: str) -> None:
 
     coords_dict = {}
 
-    for dim in cfg["dims"]:  # 2D and 3D
-        coords = run_map_embeddings(  # map embeddings pipeline
-            run_dir=Path(cfg["run_dir"]),
-            feature_type=cfg["feature_type"],
-            dims=dim,
-            sample_size=cfg["sample_size"],
-            umap_params=cfg["umap"],
-            output_dir=experiment_viz_dir,
-        )
+    embeddings, ids_list = run_map_embeddings(  # map embeddings pipeline
+        run_dir=Path(cfg["run_dir"]),
+        feature_type=cfg["feature_type"],
+        dims=None,
+        sample_size=cfg["sample_size"],
+        umap_params=cfg["umap"],
+        output_dir=None,
+    )
 
+    for dim in cfg["dims"]:
+        coords = compute_umap(embeddings, n_components=dim, **cfg["umap"])
         coords_dict[dim] = coords
+
+        coords_path = experiment_viz_dir / f"coords_{dim}d.npy"
+        ids_path = experiment_viz_dir / f"coords_{dim}d_ids.npy"
+
+        np.save(coords_path, coords)
+        np.save(ids_path, np.array(ids_list, dtype=np.int32))
+
+        meta = {
+            "algorithm": "umap",
+            "feature_type": cfg["feature_type"],
+            "dims": dim,
+            "seed": DR_SEED,
+            "n_neighbors": min(cfg["umap"].get("n_neighbors", 15), embeddings.shape[0] - 1),
+            "sample_size": cfg["sample_size"],
+            "n_points": int(coords.shape[0]),
+            "embedding_dim": int(embeddings.shape[1]),
+        }
+
+        meta_path = experiment_viz_dir / f"coords_{dim}d_metadata.json"
+
+        with open(meta_path, "w") as f:
+            json.dump(meta, f, indent=2)
 
     for dim, coords in coords_dict.items():
         preview_name = f"preview_{dim}d.png"
@@ -91,7 +115,7 @@ def run_experiment(config_name: str) -> None:
     if 2 not in coords_dict:
         raise ValueError("Clustering requires 2D projection!")
 
-    cluster_labels = compute_kmeans(coords_dict[2], n_clusters=cfg["n_clusters"])
+    cluster_labels = compute_kmeans(embeddings, n_clusters=cfg["n_clusters"])
 
     for dim in cfg["dims"]:
         np.save(experiment_viz_dir / f"clusters_{dim}d.npy", cluster_labels)

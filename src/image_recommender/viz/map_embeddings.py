@@ -12,11 +12,11 @@ from image_recommender.viz.dr import compute_umap
 def run_map_embeddings(
     run_dir: Path,
     feature_type: str,
-    dims: int,
+    dims: int | None,
     sample_size: int | None,
     umap_params: dict,
     output_dir: Path | None = None,
-) -> np.ndarray:
+) -> np.ndarray | tuple[np.ndarray, list[int]]:
     """
     Maps embeddings to 2D or 3D space.
 
@@ -70,6 +70,9 @@ def run_map_embeddings(
         ids_list = [ids_list[i] for i in idx]
 
     logging.info(f"Loaded embeddings matrix with shape {embeddings.shape}")
+
+    if dims is None:
+        return embeddings, ids_list
 
     # UMAP
     logging.info("Running UMAP projection")
