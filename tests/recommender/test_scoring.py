@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 
 from image_recommender.recommender.scoring import (
+    filter_0_variance,
     normalize_array,
     normalize_dict,
     validate_input,
@@ -85,3 +86,24 @@ def test_normalize_dict():
     # check key set equality after normalization
     assert set(dict_1.keys()) == set(norm_dict_1.keys())
     assert set(dict_2.keys()) == set(norm_dict_2.keys())
+
+
+def test_filter_0_variance():
+    # check feature with 0 variance is removed
+    norm_dict_1 = {"hsv": np.array([0.0, 0.0, 0.0]), "embedding": np.array([0.0, 0.5, 1.0])}
+    filtered_dict_1 = filter_0_variance(norm_dist_dict=norm_dict_1)
+
+    assert "hsv" not in filtered_dict_1
+    assert np.allclose(filtered_dict_1["embedding"], np.array([0.0, 0.5, 1.0], dtype=np.float32))
+
+    # check all features are removed if all have 0 variance
+    norm_dict_2 = {"hsv": np.array([0.0, 0.0, 0.0]), "embedding": np.array([0.0, 0.0, 0.0])}
+    filtered_dict_2 = filter_0_variance(norm_dist_dict=norm_dict_2)
+
+    assert len(filtered_dict_2) == 0
+
+    # check no features are removed if none have 0 variance
+    norm_dict_3 = {"hsv": np.array([1.0, 0.5, 0.0]), "embedding": np.array([0.0, 0.5, 1.0])}
+    filtered_dict_3 = filter_0_variance(norm_dist_dict=norm_dict_3)
+
+    assert set(filtered_dict_3.keys()) == set(norm_dict_3.keys())

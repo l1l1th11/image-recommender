@@ -40,3 +40,14 @@ def normalize_dict(dist_dict: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
         norm_dist_dict[feature] = normalize_array(dist_arr=dist_arr)
 
     return norm_dist_dict
+
+
+def filter_0_variance(norm_dist_dict: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
+    filtered_dist_dict = {}
+
+    for feature, dist_arr in norm_dist_dict.items():
+        # only keep arrays with variance
+        if not np.all(dist_arr == dist_arr[0]):
+            filtered_dist_dict[feature] = dist_arr
+
+    return filtered_dist_dict
