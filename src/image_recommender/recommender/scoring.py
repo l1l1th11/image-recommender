@@ -51,3 +51,14 @@ def filter_0_variance(norm_dist_dict: dict[str, np.ndarray]) -> dict[str, np.nda
             filtered_dist_dict[feature] = dist_arr
 
     return filtered_dist_dict
+
+
+def score_candidates(filtered_dist_dict: dict[str, np.ndarray]) -> np.ndarray:
+    # stack distance arrays
+    dist_arrs = list(filtered_dist_dict.values())
+    stacked_dist_arrs = np.stack(dist_arrs, axis=0)
+
+    # compute mean along feature axis
+    score_arr = np.mean(stacked_dist_arrs, axis=0)
+
+    return score_arr.astype(np.float32)

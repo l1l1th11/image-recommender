@@ -5,6 +5,7 @@ from image_recommender.recommender.scoring import (
     filter_0_variance,
     normalize_array,
     normalize_dict,
+    score_candidates,
     validate_input,
 )
 
@@ -107,3 +108,19 @@ def test_filter_0_variance():
     filtered_dict_3 = filter_0_variance(norm_dist_dict=norm_dict_3)
 
     assert set(filtered_dict_3.keys()) == set(norm_dict_3.keys())
+
+
+def test_score_candidates():
+    # test basic fusion
+    filtered_dict_1 = {"hsv": np.array([1.0, 0.5, 0.0]), "embedding": np.array([0.0, 0.5, 0.2])}
+    score_arr_1 = score_candidates(filtered_dist_dict=filtered_dict_1)
+    assert np.allclose(score_arr_1, np.array([0.5, 0.5, 0.1], dtype=np.float32))
+
+    # test single feature
+    filtered_dict_2 = {"hsv": np.array([0.0, 0.5, 1.0])}
+    score_arr_2 = score_candidates(filtered_dist_dict=filtered_dict_2)
+    assert np.allclose(score_arr_2, np.array([0.0, 0.5, 1.0], dtype=np.float32))
+
+    # check shape correctness
+    assert score_arr_1.shape == (3,)
+    assert score_arr_2.shape == (3,)
