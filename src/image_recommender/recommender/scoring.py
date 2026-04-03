@@ -1,23 +1,23 @@
 import numpy as np
 
 
-def validate_input(distances: dict[str, np.ndarray]) -> int:
+def validate_input(dist_dict: dict[str, np.ndarray]) -> int:
     # check min one feature was provided
-    if not distances:
-        raise ValueError("No distances were provided, can't calculate scores")
+    if not dist_dict:
+        raise ValueError("No dist_dict were provided, can't calculate scores")
 
     # ensure all arrays have same length
-    first_value = next(iter(distances.values()))
+    first_value = next(iter(dist_dict.values()))
     n_candidates = len(first_value)
 
-    for arr in distances.values():
+    for arr in dist_dict.values():
         if len(arr) != n_candidates:
             raise ValueError("All distance arrays should have same length")
 
     return n_candidates
 
 
-def normalize(dist_arr: np.ndarray) -> np.ndarray:
+def normalize_array(dist_arr: np.ndarray) -> np.ndarray:
     # compute min and max
     arr_min = np.min(dist_arr)
     arr_max = np.max(dist_arr)
@@ -30,3 +30,13 @@ def normalize(dist_arr: np.ndarray) -> np.ndarray:
     norm_dist_array = (dist_arr - arr_min) / (arr_max - arr_min)
 
     return norm_dist_array.astype(np.float32)
+
+
+def normalize_dict(dist_dict: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
+    norm_dist_dict = {}
+
+    for feature, dist_arr in dist_dict.items():
+        # normalize each array
+        norm_dist_dict[feature] = normalize_array(dist_arr=dist_arr)
+
+    return norm_dist_dict
