@@ -1,3 +1,6 @@
+import math
+import numbers
+
 import numpy as np
 
 
@@ -60,5 +63,88 @@ def score_candidates(filtered_dist_dict: dict[str, np.ndarray]) -> np.ndarray:
 
     # compute mean along feature axis
     score_arr = np.mean(stacked_dist_arrs, axis=0)
+
+    return score_arr.astype(np.float32)
+
+
+def compute_scores(
+    dist_dict: dict[str, np.ndarray], weights: dict[str, float] | None = None
+) -> np.ndarray:
+    """
+    Computes the final distance score for each candidate and returns them as one score array (float32).
+
+    Input:
+    dictionary of features (keys) and their distance arrays (values), distances are per feature
+    optional: weights for features influence on final score
+
+    Output:
+    array with final candidate distance score (combined for all features)
+    """
+    # validate input and get number of candidates
+    n_candidates = validate_input(dist_dict=dist_dict)
+
+    # normalize dict
+    norm_dist_dict = normalize_dict(dist_dict=dist_dict)
+
+    # filter 0 variance
+    filtered_dist_dict = filter_0_variance(norm_dist_dict=norm_dist_dict)
+
+    # handle empty distance dicts
+    if not filtered_dist_dict:
+        return np.zeros(shape=(n_candidates,), dtype=np.float32)
+
+    # compute scores
+    if weights is None:
+        score_arr = score_candidates(filtered_dist_dict=filtered_dist_dict)
+
+    else:
+        # ensure provided features match input
+        if not set(weights.keys()) == set(dist_dict.keys()):
+            raise ValueError("Given weights features don't align with provided data")
+
+        # check provided weights sum to 1
+        if not math.isclose(sum(weights.values()), 1, rel_tol=1e-6):
+            raise ValueError("Given weights don't sum to 1")
+
+        # check weights are numeric & >= 0
+        for weight in weights.values():
+            if not isinstance(weight, numbers.Number):
+                raise ValueError("Given weights must be numeric")
+            if weight < 0:
+                raise ValueError("Given weights must be >= 0")
+
+        # select active weights
+        active_weights = {}
+        for feature in filtered_dist_dict:
+            active_weights[feature] = weights[feature]
+
+        # renormalize (divide by sum of active weights)
+        renormalized_weights = {}
+        sum_act_weights = sum(active_weights.values())
+
+        for feature, weight in active_weights.items():
+            renormalized_weights[feature] = weight / sum_act_weights
+
+        # stack distance arrays
+        dist_arrs = list(filtered_dist_dict.values())
+        stacked_dist_arrs = np.stack(dist_arrs, axis=0)
+
+        # get ordered weight list
+        ordered_weights_list = []
+
+        for feature in filtered_dist_dict:
+            ordered_weights_list.append(renormalized_weights[feature])
+
+        # convert to array
+        ordered_weights = np.array(ordered_weights_list)
+
+        # reshape
+        reshaped_weights = ordered_weights[:, None]
+
+        # apply weights per row
+        weighted_dist_arrs = stacked_dist_arrs * reshaped_weights
+
+        # compute sum feature axis
+        score_arr = np.sum(weighted_dist_arrs, axis=0)
 
     return score_arr.astype(np.float32)

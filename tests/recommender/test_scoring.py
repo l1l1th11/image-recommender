@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 
 from image_recommender.recommender.scoring import (
+    compute_scores,
     filter_0_variance,
     normalize_array,
     normalize_dict,
@@ -124,3 +125,44 @@ def test_score_candidates():
     # check shape correctness
     assert score_arr_1.shape == (3,)
     assert score_arr_2.shape == (3,)
+
+
+def test_compute_scores():
+    # check basic fusion
+    dict_1 = {"hsv": np.array([1, 5, 7]), "embedding": np.array([4, 9, 3])}
+    weights_1 = {"hsv": 0.3, "embedding": 0.7}
+    score_arr_1 = compute_scores(dist_dict=dict_1, weights=weights_1)
+    assert np.allclose(score_arr_1, np.array([0.1166666667, 0.9, 0.3], dtype=np.float32))
+
+    # test renormalization after filtering
+    dict_2 = {
+        "hsv": np.array([1, 2, 7]),
+        "embedding": np.array([5, 9, 6]),
+        "phash": np.array([2, 2, 2]),
+    }
+    weights_2 = {"hsv": 0.2, "embedding": 0.6, "phash": 0.2}
+    score_arr_2 = compute_scores(dist_dict=dict_2, weights=weights_2)
+    assert np.allclose(score_arr_2, np.array([0.0, 0.7916666667, 0.4375], dtype=np.float32))
+
+    # check empty dict after filtering leads to 0 array
+    dict_3 = {"hsv": np.array([1, 1, 1]), "embedding": np.array([2, 2, 2])}
+    score_arr_3 = compute_scores(dist_dict=dict_3)
+    assert np.allclose(score_arr_3, np.array([0.0, 0.0, 0.0], dtype=np.float32))
+
+    # test invalid weights
+    dict_4 = {"hsv": np.array([1, 2, 3]), "embedding": np.array([4, 5, 6])}
+
+    # wrong keys
+    weights_3 = {"phash": 0.3, "embedding": 0.7}
+    with pytest.raises(ValueError):
+        compute_scores(dist_dict=dict_4, weights=weights_3)
+
+    # sum != 1
+    weights_4 = {"hsv": 0.7, "embedding": 0.7}
+    with pytest.raises(ValueError):
+        compute_scores(dist_dict=dict_4, weights=weights_4)
+
+    # negative weight
+    weights_5 = {"hsv": -0.3, "embedding": 0.7}
+    with pytest.raises(ValueError):
+        compute_scores(dist_dict=dict_4, weights=weights_5)
