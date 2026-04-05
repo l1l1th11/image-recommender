@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import numpy as np
+
 from image_recommender.features.storage import read_validate_shard
 
 
@@ -24,3 +26,23 @@ def load_canonical_ids(run_dir: Path | str, feature_type: str) -> list[int]:
         raise ValueError("Canonical id set contains duplicates")
 
     return canonical_ids
+
+
+def align_distances(
+    canonical_ids: list[int], backend_ids: list[int], backend_distances: np.ndarray
+) -> np.ndarray:
+    # ensure no duplicate ids in backend
+    if len(backend_ids) != len(set(backend_ids)):
+        raise ValueError("Backend id set contains duplicates")
+
+    # ensure backend and canonical ids have equal coverage
+    if set(backend_ids) != set(canonical_ids):
+        raise ValueError("Backend and canonical id sets are not equal")
+
+    # align ids & distances within dict
+    distance_by_id = dict(zip(backend_ids, backend_distances, strict=True))
+
+    # build aligned distance array
+    aligned_distances = [distance_by_id[id] for id in canonical_ids]
+
+    return np.array(aligned_distances, dtype=np.float32)
