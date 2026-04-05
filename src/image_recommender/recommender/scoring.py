@@ -3,6 +3,8 @@ import numbers
 
 import numpy as np
 
+from image_recommender.config import VAR_EPSILON
+
 
 def validate_input(dist_dict: dict[str, np.ndarray]) -> int:
     # check min one feature was provided
@@ -47,10 +49,12 @@ def normalize_dict(dist_dict: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
 
 def filter_0_variance(norm_dist_dict: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
     filtered_dist_dict = {}
+    epsilon = VAR_EPSILON
 
     for feature, dist_arr in norm_dist_dict.items():
-        # only keep arrays with variance
-        if not np.all(dist_arr == dist_arr[0]):
+        # only keep features with meaningful variation (range >= epsilon)
+        var_range = np.max(dist_arr) - np.min(dist_arr)
+        if var_range >= epsilon:
             filtered_dist_dict[feature] = dist_arr
 
     return filtered_dist_dict
@@ -71,14 +75,23 @@ def compute_scores(
     dist_dict: dict[str, np.ndarray], weights: dict[str, float] | None = None
 ) -> np.ndarray:
     """
-    Computes the final distance score for each candidate and returns them as one score array (float32).
+    Compute a final score per candidate by combining multiple feature distances.
 
-    Input:
-    dictionary of features (keys) and their distance arrays (values), distances are per feature
-    optional: weights for features influence on final score
+    Steps:
+    - validate input alignment
+    - normalize distances to [0, 1]
+    - drop near constant features (range < VAR_EPSILON)
+    - fuse remaining features via mean or weighted sum (weights renormalized after filtering)
 
-    Output:
-    array with final candidate distance score (combined for all features)
+    Args:
+        dist_dict: per feature distance arrays (same length & order)
+        weights: optional weights (must match keys, sum to appr. 1)
+
+    Returns:
+        float32 score array (aligned with input, lower = better)
+
+    Edge case:
+        no active features -> zero array
     """
     # validate input and get number of candidates
     n_candidates = validate_input(dist_dict=dist_dict)

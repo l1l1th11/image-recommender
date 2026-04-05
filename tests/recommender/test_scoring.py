@@ -1,6 +1,7 @@
 import numpy as np
 import pytest
 
+from image_recommender.config import VAR_EPSILON
 from image_recommender.recommender.scoring import (
     compute_scores,
     filter_0_variance,
@@ -109,6 +110,16 @@ def test_filter_0_variance():
     filtered_dict_3 = filter_0_variance(norm_dist_dict=norm_dict_3)
 
     assert set(filtered_dict_3.keys()) == set(norm_dict_3.keys())
+
+    # check feature with near 0 variance is removed
+    norm_dict_4 = {
+        "hsv": np.array([VAR_EPSILON / 10, VAR_EPSILON / 3, 0.0]),
+        "embedding": np.array([0.0, 0.5, 1.0]),
+    }
+    filtered_dict_4 = filter_0_variance(norm_dist_dict=norm_dict_4)
+
+    assert "hsv" not in filtered_dict_4
+    assert np.allclose(filtered_dict_4["embedding"], np.array([0.0, 0.5, 1.0], dtype=np.float32))
 
 
 def test_score_candidates():
