@@ -140,3 +140,72 @@ class LinearSearchBackend:
         distances_sorted, ids_sorted = zip(*sorted_topk, strict=True)
 
         return list(ids_sorted), np.asarray(distances_sorted, dtype=np.float32)
+
+    def search_all(self, query: np.ndarray) -> tuple[list[int], np.ndarray]:
+        """
+        Performs a linear search over all shards and returns all distances.
+        """
+        if not isinstance(query, np.ndarray):
+            raise ValueError("Query must be a numpy array.")
+        if query.ndim != 1 or query.size == 0:
+            raise ValueError("Query must be a non-empty 1D array.")
+        if not np.isfinite(query).all():
+            raise ValueError("Query contains invalid (nan or inf) values.")
+        if np.linalg.norm(query) == 0:
+            raise ValueError("Query vector must not be zero.")
+
+        all_ids = []
+        all_distances = []
+        expected_dim: int | None = None
+
+        for shard_id in self.shard_ids:
+            # load features & ids
+            features, ids = self._load_shard(shard_id)  # query (D,), features (N, D)
+
+            # extract dimension of feature vectors from first shard
+            if expected_dim is None:
+                expected_dim = features.shape[1]
+
+            # ensure dimension for feature vectors is the same across shards
+            if features.shape[1] != expected_dim:
+                raise ValueError("Inconsistent feature dimensions across shards")
+
+            # compute distance to query feature for each shard feature
+            distances = self.distance_fn(query, features)  # distances (N,)
+
+            # ensure distance function returns array with one value per candidate
+            if not isinstance(distances, np.ndarray) or distances.ndim != 1:
+                raise ValueError("Distance function must return a 1D numpy array.")
+
+            # enforce one feature row corresponds to one distance
+            if distances.shape[0] != features.shape[0]:
+                raise ValueError("Distance output size mismatch.")
+
+            # detect NaN, +inf & -inf values
+            invalid_mask = ~np.isfinite(distances)
+
+            # log number of invalid values
+            anomaly_count = int(np.sum(invalid_mask))
+
+            if anomaly_count > 0:
+                logger.warning(
+                    "%d invalid candidate distances (+inf) in shard %04d",
+                    anomaly_count,
+                    shard_id,
+                )
+
+                # create defensive copy
+                distances = distances.copy()
+
+                # change invalid values to +inf (worst possible distance)
+                distances[invalid_mask] = np.inf
+
+            # add ids and distances
+            all_ids.extend(ids)
+            all_distances.extend(distances)
+
+        # ensure dimensions match
+        if len(all_distances) != len(all_ids):
+            raise ValueError("Length of ids and extracted distances is mismatched")
+
+        return all_ids, np.array(all_distances, dtype=np.float32)
