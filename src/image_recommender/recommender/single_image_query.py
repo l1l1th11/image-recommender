@@ -1,8 +1,10 @@
+from collections.abc import Callable
 from pathlib import Path
 
 import numpy as np
 
 from image_recommender.features.storage import read_validate_shard
+from image_recommender.search.linear import LinearSearchBackend
 
 
 def load_canonical_ids(run_dir: Path | str, feature_type: str) -> list[int]:
@@ -46,3 +48,34 @@ def align_distances(
     aligned_distances = [distance_by_id[id] for id in canonical_ids]
 
     return np.array(aligned_distances, dtype=np.float32)
+
+
+def distances_per_feature(
+    run_dir: Path | str,
+    feature_type: str,
+    distance_fn: Callable[[np.ndarray, np.ndarray], np.ndarray],
+    query: np.ndarray,
+) -> np.ndarray:
+    """
+    Calculates the distances of all available candidates in a run_dir to one query for one feature type.
+
+    Input: query feature vector
+    Output: aligned distance array
+    """
+    # get canonical ids
+    canonical_ids = load_canonical_ids(run_dir=run_dir, feature_type=feature_type)
+
+    # instantiate search backend
+    backend = LinearSearchBackend(
+        run_dir=run_dir, feature_type=feature_type, distance_fn=distance_fn, k=1
+    )  # k is not used by search_all
+
+    # get all ids & distances for one feature
+    backend_ids, backend_distances = backend.search_all(query=query)
+
+    # align distances
+    aligned_distances = align_distances(
+        canonical_ids=canonical_ids, backend_ids=backend_ids, backend_distances=backend_distances
+    )
+
+    return aligned_distances
