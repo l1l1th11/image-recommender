@@ -54,7 +54,9 @@ def plot_2d(
     fig, ax = plt.subplots(figsize=(6, 6))
 
     if labels is not None:
-        ax.scatter(coords[:, 0], coords[:, 1], s=point_size, alpha=alpha, c=labels, cmap="tab20")
+        label_to_color = _cluster_legend(ax, labels)
+        point_colors = [label_to_color[label] for label in labels]
+        ax.scatter(coords[:, 0], coords[:, 1], s=point_size, alpha=alpha, c=point_colors)
     else:
         ax.scatter(coords[:, 0], coords[:, 1], s=point_size, alpha=alpha, color=POINT_COLOR)
 
@@ -106,14 +108,15 @@ def plot_3d(
     ax = fig.add_subplot(111, projection="3d")
 
     if labels is not None:
+        label_to_color = _cluster_legend(ax, labels)
+        point_colors = [label_to_color[label] for label in labels]
         ax.scatter(
             coords[:, 0],
             coords[:, 1],
             coords[:, 2],
             s=point_size,
             alpha=alpha,
-            c=labels,
-            cmap="tab20",
+            c=point_colors,
         )
     else:
         ax.scatter(
@@ -132,3 +135,35 @@ def plot_3d(
         plt.close(fig)
 
     return fig
+
+
+def _cluster_legend(ax, labels):
+    """
+    Adds a legend for cluster labels.
+    """
+    unique_labels = np.unique(labels)
+    n_clusters = len(unique_labels)
+
+    cmap = plt.get_cmap("tab20")
+
+    label_to_color = {
+        label: cmap(i / max(1, n_clusters - 1))
+        for i, label in enumerate(unique_labels)  # distinguishable colors
+    }
+
+    handles = [
+        plt.Line2D(
+            [0],
+            [0],
+            marker="o",
+            color="w",
+            label=f"Cluster {i + 1}",
+            markerfacecolor=label_to_color[label],
+            markersize=8,
+        )
+        for i, label in enumerate(unique_labels)
+    ]
+
+    ax.legend(handles=handles, loc="best")
+
+    return label_to_color
