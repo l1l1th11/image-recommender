@@ -4,7 +4,13 @@ from pathlib import Path
 import numpy as np
 
 from image_recommender.features.storage import read_validate_shard
+from image_recommender.metrics.chi import chi_distance_to_many
+from image_recommender.metrics.cosine import cosine_distance_to_many
+from image_recommender.metrics.hamming import hamming_distance_to_many
 from image_recommender.search.linear import LinearSearchBackend
+from image_recommender.util.logs import get_logger
+
+logger = get_logger(__name__)
 
 
 def load_canonical_ids(run_dir: Path | str, feature_type: str) -> list[int]:
@@ -57,10 +63,22 @@ def distances_per_feature(
     query: np.ndarray,
 ) -> np.ndarray:
     """
-    Calculates the distances of all available candidates in a run_dir to one query for one feature type.
+    Compute distances from a single query to all candidates for one feature type.
 
-    Input: query feature vector
-    Output: aligned distance array
+    Input:
+        run_dir: Directory containing feature folders
+        feature_type: Feature type to process ("hsv", "embedding", "phash")
+        distance_fn: Function calculating distances between query (D,) and candidates (N, D)
+        query: Precomputed query vector of shape (D,)
+
+    Output:
+        distances (N,): Distances aligned to canonical candidate id order for selected feature
+
+    Raises:
+        ValueError: If feature data is missing, inconsistent, or distance computation fails
+
+    Notes:
+        - Distances are computed via search backend, then realigned to canonical id order
     """
     # get canonical ids
     canonical_ids = load_canonical_ids(run_dir=run_dir, feature_type=feature_type)
@@ -79,3 +97,87 @@ def distances_per_feature(
     )
 
     return aligned_distances
+
+
+def distances_all_features(
+    run_dir: Path | str,
+    queries_by_feature: dict[str, np.ndarray],
+    feature_types: list[str] | None = None,
+) -> dict[str, np.ndarray]:
+    """
+    Computes distances from a single query to all candidates for all available feature types.
+
+    Input:
+        run_dir: Directory containing feature folders
+        queries_by_feature: {feature_type: query_vector (D,)} with precomputed features
+        feature_types: Optional subset of feature types to process
+
+    Output:
+        {feature_type: distances (N,)} where each array is aligned to canonical candidate id order
+
+    Raises:
+        ValueError: If no valid feature types are available after filtering
+
+    Notes:
+        - Only features present in both run_dir and queries_by_feature are used
+        - Missing or failing features are skipped with a warning
+    """
+    # discover available features from run_dir
+    data = Path(run_dir)
+    features_run_dir = set(dir.name for dir in data.iterdir() if dir.is_dir())
+
+    # get available features from queries
+    features_query = set(queries_by_feature.keys())
+
+    # proceed with available features only
+    available_features = features_query & features_run_dir
+
+    # check for mismatch
+    if features_query != available_features:
+
+        # warn if requested features are not available
+        logger.warning(
+            f"One or more requested features aren't available, proceeding with {available_features}"
+        )
+
+    # filter by selected feature types
+    if feature_types is None:
+        features_to_process = available_features
+
+    else:
+        features_to_process = set(feature_types) & available_features
+
+    # check if there are features to process
+    if not features_to_process:
+        raise ValueError("No available features to process")
+
+    # build distance function dict
+    distance_fn_dict = {
+        "hsv": chi_distance_to_many,
+        "embedding": cosine_distance_to_many,
+        "phash": hamming_distance_to_many,
+    }
+
+    dist_dict = {}
+
+    for feature in sorted(features_to_process):
+        # get required query and distance function
+        query = queries_by_feature[feature]
+        distance_fn = distance_fn_dict[feature]
+
+        # calculate distance array
+        try:
+            aligned_distances = distances_per_feature(
+                run_dir=run_dir, feature_type=feature, distance_fn=distance_fn, query=query
+            )
+
+            # append distances for each feature
+            dist_dict[feature] = aligned_distances
+
+        # skip and log on error
+        except ValueError as e:
+            logger.warning(f"Distance computation failed for {feature}: {e}", exc_info=True)
+
+            continue
+
+    return dist_dict
