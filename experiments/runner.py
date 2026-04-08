@@ -155,6 +155,8 @@ def run_experiment(
 
     cluster_labels = compute_kmeans(embeddings, n_clusters=cfg["n_clusters"])
 
+    cluster_labels = cluster_labels - cluster_labels.min() + 1  # start cluster labels at 1
+
     for dim in cfg["dims"]:
         np.save(viz_dir / f"clusters_{dim}d.npy", cluster_labels)
 

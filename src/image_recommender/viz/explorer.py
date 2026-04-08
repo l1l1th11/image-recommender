@@ -11,6 +11,7 @@ from PIL import Image
 from sklearn.neighbors import NearestNeighbors
 
 from image_recommender.db.connector import get_path_by_id
+from image_recommender.viz.plots import POINT_COLOR, get_cluster_color_mapping
 
 _thumbnail_cache: dict[tuple[str, int], str] = {}
 
@@ -156,6 +157,17 @@ def build_scatter(
     """
     Creates a Plotly ScatterGL figure for 2D embeddings.
     """
+    if clusters is not None:
+        label_to_color = get_cluster_color_mapping(clusters)
+
+        marker_colors = [
+            f"rgba({int(r*255)}, {int(g*255)}, {int(b*255)}, {a})"
+            for (r, g, b, a) in [label_to_color[label] for label in clusters]
+        ]
+    else:
+        r, g, b = [int(c * 255) for c in POINT_COLOR]
+        marker_colors = f"rgba({r},{g},{b},1)"
+
     fig = go.Figure(
         go.Scattergl(
             x=coords[:, 0],
@@ -164,8 +176,7 @@ def build_scatter(
             marker=dict(
                 size=5,
                 opacity=0.6,
-                color=clusters if clusters is not None else None,
-                colorscale="portland" if clusters is not None else None,
+                color=marker_colors,
             ),
             text=[f"<b>ID:</b> {i}" for i in ids],
             hovertemplate="%{text}<extra></extra>",

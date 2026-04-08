@@ -12,8 +12,8 @@ def test_plot_functions_do_not_modify_input():
     coords_2d_copy = coords_2d.copy()
     coords_3d_copy = coords_3d.copy()
 
-    plot_2d(coords_2d)
-    plot_3d(coords_3d)
+    plot_2d(coords_2d, point_size=20, alpha=0.8)
+    plot_3d(coords_3d, point_size=20, alpha=0.8)
 
     np.testing.assert_array_equal(coords_2d, coords_2d_copy)
     np.testing.assert_array_equal(coords_3d, coords_3d_copy)
@@ -22,7 +22,7 @@ def test_plot_functions_do_not_modify_input():
 def test_plot_2d_creates_figure(tmp_path):
     """Tests that plot_2d creates a figure and saves it to a file."""
     coords = np.random.rand(5, 2)
-    fig = plot_2d(coords, run_dir=tmp_path)
+    fig = plot_2d(coords, point_size=20, alpha=0.8, run_dir=tmp_path)
     output_file = tmp_path / "plot_2d.png"
     assert fig is not None
     assert output_file.exists()
@@ -31,7 +31,7 @@ def test_plot_2d_creates_figure(tmp_path):
 def test_plot_3d_creates_figure(tmp_path):
     """Tests that plot_3d creates a figure and saves it to a file."""
     coords = np.random.rand(5, 3)
-    fig = plot_3d(coords, run_dir=tmp_path)
+    fig = plot_3d(coords, point_size=20, alpha=0.8, run_dir=tmp_path)
     output_file = tmp_path / "plot_3d.png"
     assert fig is not None
     assert output_file.exists()
