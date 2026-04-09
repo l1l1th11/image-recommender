@@ -3,6 +3,9 @@ from pathlib import Path
 
 import numpy as np
 
+from image_recommender.features.embedding import extract_embedding
+from image_recommender.features.hsv import hsv_features
+from image_recommender.features.phash import extract_phash
 from image_recommender.features.storage import read_validate_shard
 from image_recommender.metrics.chi import chi_distance_to_many
 from image_recommender.metrics.cosine import cosine_distance_to_many
@@ -10,6 +13,8 @@ from image_recommender.metrics.hamming import hamming_distance_to_many
 from image_recommender.recommender.scoring import compute_scores
 from image_recommender.search.linear import LinearSearchBackend
 from image_recommender.util.logs import get_logger
+
+SUPPORTED_FEATURES = {"hsv", "embedding", "phash"}
 
 logger = get_logger(__name__)
 
@@ -218,3 +223,72 @@ def get_score_arr(
     score_arr = compute_scores(dist_dict=dist_dict, weights=weights)
 
     return score_arr
+
+
+def extract_query_features(
+    img_rgb: np.ndarray, feature_types: list[str] | None = None
+) -> dict[str, np.ndarray]:
+    """
+    Extracts query feature vectors from an RGB image for the specified feature types.
+
+    Input:
+        img_rgb: rgb image as a numpy array (prev. validated by image loader)
+        feature_types: Optional list of feature types to extract. If None, all supported features are attempted
+
+    Output:
+        Dictionary mapping feature type to extracted query vector (1D numpy array)
+
+    Raises:
+        ValueError if no valid features can be processed
+
+    Notes:
+        Only supported feature types are processed
+        Unsupported requested features are ignored with a warning
+        If extraction of a feature fails, it is skipped with a warning
+    """
+    # select features to process
+    if feature_types is None:
+        features_to_process = SUPPORTED_FEATURES
+
+    else:
+        # filter by selected feature types
+        features_to_process = SUPPORTED_FEATURES & set(feature_types)
+
+        # warn if requested features are not supported
+        if not set(feature_types).issubset(SUPPORTED_FEATURES):
+            logger.warning(
+                f"One or more requested features aren't supported (supported: {SUPPORTED_FEATURES}), proceeding with {features_to_process}"
+            )
+
+    # check if there are features to process
+    if not features_to_process:
+        raise ValueError("No available features to process")
+
+    # construct queries dict
+    queries_by_feature = {}
+
+    # call right extractor
+    for feature in sorted(features_to_process):
+
+        try:
+            if feature == "hsv":
+                query_hsv = hsv_features(img_rgb=img_rgb)
+                queries_by_feature["hsv"] = query_hsv
+
+            elif feature == "embedding":
+                query_embedding = extract_embedding(img_rgb=img_rgb)
+                queries_by_feature["embedding"] = query_embedding
+
+            elif feature == "phash":
+                query_phash = extract_phash(img_rgb=img_rgb)
+                queries_by_feature["phash"] = query_phash
+
+        # skip features if extraction fails
+        except ValueError as e:
+            logger.warning(f"Query feature for {feature} could not be extracted, skipping: {e}")
+
+    # check if any queries were extracted
+    if not queries_by_feature:
+        raise ValueError("No queries could be extracted")
+
+    return queries_by_feature
