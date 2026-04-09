@@ -7,6 +7,7 @@ from image_recommender.features.storage import read_validate_shard
 from image_recommender.metrics.chi import chi_distance_to_many
 from image_recommender.metrics.cosine import cosine_distance_to_many
 from image_recommender.metrics.hamming import hamming_distance_to_many
+from image_recommender.recommender.scoring import compute_scores
 from image_recommender.search.linear import LinearSearchBackend
 from image_recommender.util.logs import get_logger
 
@@ -181,3 +182,39 @@ def distances_all_features(
             continue
 
     return dist_dict
+
+
+def get_score_arr(
+    run_dir: Path | str,
+    queries_by_feature: dict[str, np.ndarray],
+    feature_types: list[str] | None = None,
+    weights: dict[str, float] | None = None,
+) -> np.ndarray:
+    """
+    Computes scores from a single query to all candidates for all available feature types.
+
+    Input:
+        run_dir: Directory containing feature folders
+        queries_by_feature: {feature_type: query_vector (D,)} with precomputed features
+        feature_types: Optional subset of feature types to process
+        weights: Optional weights (must match keys, sum to appr. 1)
+
+    Output:
+        score_arr: Aligned to canonical id order
+
+    Raises:
+        ValueError: If no valid features available
+    """
+    # compute distance dict
+    dist_dict = distances_all_features(
+        run_dir=run_dir, queries_by_feature=queries_by_feature, feature_types=feature_types
+    )
+
+    # guard against meaningless results from scoring
+    if not dist_dict:
+        raise ValueError("No valid features available to compute scores")
+
+    # compute scores
+    score_arr = compute_scores(dist_dict=dist_dict, weights=weights)
+
+    return score_arr

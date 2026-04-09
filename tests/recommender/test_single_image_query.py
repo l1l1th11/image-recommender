@@ -9,6 +9,7 @@ from image_recommender.metrics.cosine import cosine_distance_to_many
 from image_recommender.recommender.single_image_query import (
     align_distances,
     distances_per_feature,
+    get_score_arr,
     load_canonical_ids,
 )
 
@@ -141,3 +142,38 @@ def test_distances_per_feature_embedding():
         query=query_embedding,
     )
     assert np.array_equal(aligned_distances_embedding, aligned_distances_embedding_2)
+
+
+@pytest.mark.integration
+def test_get_score_arr():
+    # setup
+    run_dir = Path("data/samples")
+
+    # load features and ids
+    features_hsv, _ = read_validate_shard(run_dir=run_dir, feature_type="hsv", shard_id=0)
+    features_embedding, _ = read_validate_shard(
+        run_dir=run_dir, feature_type="embedding", shard_id=0
+    )
+
+    # pick query vector
+    query_hsv = features_hsv[0]
+    query_embedding = features_embedding[0]
+
+    # build query dict
+    queries_by_feature = {"hsv": query_hsv, "embedding": query_embedding}
+
+    # get score array
+    score_arr = get_score_arr(run_dir=run_dir, queries_by_feature=queries_by_feature)
+
+    # check length
+    assert len(score_arr) == features_hsv.shape[0]
+
+    # check dtype
+    assert score_arr.dtype == np.float32
+
+    # ensure no NaN leaked from scoring
+    assert np.all(np.isfinite(score_arr))
+
+    # check determinism
+    score_arr_2 = get_score_arr(run_dir=run_dir, queries_by_feature=queries_by_feature)
+    assert np.array_equal(score_arr, score_arr_2)
