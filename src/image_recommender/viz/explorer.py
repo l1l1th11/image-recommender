@@ -13,6 +13,8 @@ from sklearn.neighbors import NearestNeighbors
 from image_recommender.db.connector import get_path_by_id
 from image_recommender.viz.plots import POINT_COLOR, get_cluster_color_mapping
 
+logging.getLogger("werkzeug").setLevel(logging.WARNING)  # suppress Dash/Flask HTTP INFO logs
+
 _thumbnail_cache: dict[tuple[str, int], str] = {}
 
 
