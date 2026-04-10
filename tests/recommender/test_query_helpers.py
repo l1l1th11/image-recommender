@@ -8,6 +8,7 @@ from image_recommender.metrics.chi import chi_distance_to_many
 from image_recommender.metrics.cosine import cosine_distance_to_many
 from image_recommender.recommender.query_helpers import (
     align_distances,
+    distances_all_features,
     distances_per_feature,
     get_score_arr,
     load_canonical_ids,
@@ -162,11 +163,15 @@ def test_get_score_arr():
     # build query dict
     queries_by_feature = {"hsv": query_hsv, "embedding": query_embedding}
 
+    # get distance dict
+    dist_dict = distances_all_features(run_dir=run_dir, queries_by_feature=queries_by_feature)
+
     # get score array
-    score_arr = get_score_arr(run_dir=run_dir, queries_by_feature=queries_by_feature)
+    score_arr = get_score_arr(dist_dict=dist_dict)
 
     # check length
-    assert len(score_arr) == features_hsv.shape[0]
+    n_candidates = next(iter(dist_dict.values())).shape[0]
+    assert len(score_arr) == n_candidates
 
     # check dtype
     assert score_arr.dtype == np.float32
@@ -174,6 +179,18 @@ def test_get_score_arr():
     # ensure no NaN leaked from scoring
     assert np.all(np.isfinite(score_arr))
 
+    # get score array for hsv only
+    weights = {"hsv": 1.0, "embedding": 0.0}
+    score_arr_2 = get_score_arr(dist_dict, weights)
+
+    # check result equals hsv only scoring
+    score_arr_2_hsv_only = get_score_arr({"hsv": dist_dict["hsv"]})
+    assert np.allclose(score_arr_2, score_arr_2_hsv_only)
+
     # check determinism
-    score_arr_2 = get_score_arr(run_dir=run_dir, queries_by_feature=queries_by_feature)
-    assert np.array_equal(score_arr, score_arr_2)
+    score_arr_3 = get_score_arr(dist_dict=dist_dict)
+    assert np.array_equal(score_arr, score_arr_3)
+
+    # check empty dict raises
+    with pytest.raises(ValueError):
+        get_score_arr(dist_dict={})

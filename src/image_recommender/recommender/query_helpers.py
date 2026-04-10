@@ -192,18 +192,14 @@ def distances_all_features(
 
 
 def get_score_arr(
-    run_dir: Path | str,
-    queries_by_feature: dict[str, np.ndarray],
-    feature_types: list[str] | None = None,
+    dist_dict: dict[str, np.ndarray],
     weights: dict[str, float] | None = None,
 ) -> np.ndarray:
     """
-    Computes scores from a single query to all candidates for all available feature types.
+    Computes a per candidate score array from aligned per feature distance arrays.
 
     Input:
-        run_dir: Directory containing feature folders
-        queries_by_feature: {feature_type: query_vector (D,)} with precomputed features
-        feature_types: Optional subset of feature types to process
+        dist_dict: per feature distance arrays (same length & order)
         weights: Optional weights (must match keys, sum to appr. 1)
 
     Output:
@@ -212,12 +208,7 @@ def get_score_arr(
     Raises:
         ValueError: If no valid features available
     """
-    # compute distance dict
-    dist_dict = distances_all_features(
-        run_dir=run_dir, queries_by_feature=queries_by_feature, feature_types=feature_types
-    )
-
-    # guard against meaningless results from scoring
+    # guard against meaningless scoring results
     if not dist_dict:
         raise ValueError("No valid features available to compute scores")
 
