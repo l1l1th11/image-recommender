@@ -22,6 +22,7 @@ dependencies:
   - matplotlib
   - plotly
   - dash
+  - pyyaml
 
   # testing
   - pytest
