@@ -14,7 +14,7 @@ def run_map_embeddings(
     feature_type: str,
     dims: int | None,
     sample_size: int | None,
-    umap_params: dict,
+    umap_params: dict | None = None,
     output_dir: Path | None = None,
 ) -> np.ndarray | tuple[np.ndarray, list[int]]:
     """
@@ -74,6 +74,9 @@ def run_map_embeddings(
     if dims is None:
         return embeddings, ids_list
 
+    if umap_params is None:
+        umap_params = {}
+
     # UMAP
     logging.info("Running UMAP projection")
 
@@ -87,7 +90,7 @@ def run_map_embeddings(
 
     # output directory
     if output_dir is None:
-        raise ValueError("output_dir must be provided!")
+        output_dir = run_dir / feature_type / "viz"
 
     out_dir = output_dir
     out_dir.mkdir(parents=True, exist_ok=True)
