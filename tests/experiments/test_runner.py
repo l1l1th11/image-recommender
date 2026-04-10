@@ -4,9 +4,23 @@ from unittest.mock import patch
 
 import numpy as np
 
-from experiments.runner import load_config, run_experiment
+from image_recommender.config import DR_SEED
+from image_recommender.experiments.runner import load_config, run_experiment
 
 CONFIG_NAME = "pilot"
+
+
+def fake_run_map_embeddings(*args, **kwargs):
+    """Generates fake embeddings and IDs for testing."""
+    rng = np.random.default_rng(DR_SEED)
+
+    n_samples = 128
+    feature_dim = 512
+
+    embeddings = rng.normal(size=(n_samples, feature_dim)).astype(np.float32)
+    ids = list(range(n_samples))
+
+    return embeddings, ids
 
 
 def test_pipeline_caching_and_umap_recompute(caplog, tmp_path):
@@ -16,12 +30,16 @@ def test_pipeline_caching_and_umap_recompute(caplog, tmp_path):
     metadata_dir = tmp_path / "metadata" / CONFIG_NAME
     viz_dir = tmp_path / "viz" / CONFIG_NAME
 
-    run_experiment(  # 1st run: Tests that UMAP embeddings are computed and outputs are created.
-        CONFIG_NAME,
-        coords_dir=coords_dir,
-        metadata_dir=metadata_dir,
-        viz_dir=viz_dir,
-    )
+    with patch(
+        "image_recommender.experiments.runner.run_map_embeddings",
+        side_effect=fake_run_map_embeddings,
+    ):
+        run_experiment(  # 1st run: Tests that UMAP embeddings are computed and outputs are created.
+            CONFIG_NAME,
+            coords_dir=coords_dir,
+            metadata_dir=metadata_dir,
+            viz_dir=viz_dir,
+        )
 
     coord_file_2d = coords_dir / "coords_2d.npy"
     coord_file_3d = coords_dir / "coords_3d.npy"
@@ -47,7 +65,13 @@ def test_pipeline_caching_and_umap_recompute(caplog, tmp_path):
     )  # timestamp of the 2D coordinates file after the first run
 
     caplog.clear()
-    with caplog.at_level(logging.INFO):
+    with (
+        patch(
+            "image_recommender.experiments.runner.run_map_embeddings",
+            side_effect=fake_run_map_embeddings,
+        ),
+        caplog.at_level(logging.INFO),
+    ):
         run_experiment(  # 2nd run: Tests that cached UMAP embeddings are used and outputs are not recomputed.
             CONFIG_NAME,
             coords_dir=coords_dir,
@@ -99,7 +123,11 @@ def test_pipeline_caching_and_umap_recompute(caplog, tmp_path):
 
     caplog.clear()
     with (
-        patch("experiments.runner.load_config", return_value=modified_config),
+        patch("image_recommender.experiments.runner.load_config", return_value=modified_config),
+        patch(
+            "image_recommender.experiments.runner.run_map_embeddings",
+            side_effect=fake_run_map_embeddings,
+        ),
         caplog.at_level(logging.INFO),
     ):
         run_experiment(  # 3rd run: Tests that UMAP is recomputed after parameter change.
@@ -118,7 +146,13 @@ def test_pipeline_caching_and_umap_recompute(caplog, tmp_path):
     alt_metadata_dir = tmp_path / "metadata" / f"{CONFIG_NAME}_alt_seed"
     alt_viz_dir = tmp_path / "viz" / f"{CONFIG_NAME}_alt_seed"
 
-    with patch("image_recommender.viz.dr.DR_SEED", 43):
+    with (
+        patch("image_recommender.viz.dr.DR_SEED", 43),
+        patch(
+            "image_recommender.experiments.runner.run_map_embeddings",
+            side_effect=fake_run_map_embeddings,
+        ),
+    ):
         run_experiment(  # 4th run: Tests that different seed produces different coordinates.
             CONFIG_NAME,
             coords_dir=alt_coords_dir,
