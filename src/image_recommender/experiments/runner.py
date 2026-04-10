@@ -16,7 +16,7 @@ def load_config() -> dict:
     """
     Loads experiment configuration.
     """
-    config_path = Path("experiments/params.yaml")
+    config_path = Path(__file__).resolve().parent / "params.yaml"
 
     with open(config_path, encoding="utf-8") as f:
         return yaml.safe_load(f)
