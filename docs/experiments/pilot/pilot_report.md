@@ -19,12 +19,18 @@ The pilot-scale experiment evaluates clustering behavior on a small dataset (1,0
 - **min_dist = 0.1**
   Low value to maintain tight clusters and highlight local variations.
 
+- **n_clusters = 10**
+  Chosen to quickly assess whether clear semantic structure emerges at small scale.
+
 - **Projections:** 2D and 3D
 
 ### Visualization
 
-- **Point size:** 10.0 (slightly larger to emphasize individual points in a small dataset)
-- **Alpha:** 0.5 (balanced to show density without overwhelming sparse clusters)
+- **Point size = 10.0**
+  Slightly larger to emphasize individual points in a small dataset
+
+- **Alpha = 0.5**
+  Balanced to show density without overwhelming sparse clusters
 
 ### Reproducibility
 

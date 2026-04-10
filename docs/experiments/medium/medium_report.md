@@ -19,6 +19,9 @@ The medium-scale experiment evaluates clustering behavior on a substantially lar
 - **min_dist = 0.2**
   Slightly increased to reduce over-clustering and allow smoother transitions between dense regions at higher sample size.
 
+- **n_clusters = 18**
+  Increased to capture finer semantic structure emerging at larger scale, where more distinct clusters begin to separate.
+
 - **Projections:** 2D and 3D
 
 ### Visualization

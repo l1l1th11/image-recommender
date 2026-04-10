@@ -19,6 +19,9 @@ The full-scale experiment evaluates clustering behavior on the complete dataset 
 - **min_dist = 0.3**
   Higher value to reduce tight clustering and allow smoother transitions in the 2D/3D layout.
 
+- **n_clusters = 20**
+  Slightly increased compared to medium to reflect additional fine-grained structure while preserving stable macro-clusters.
+
 - **Projections:** 2D and 3D
 
 ### Visualization
