@@ -229,6 +229,12 @@ def build_parser() -> ArgumentParser:
         help="Path to query image",
     )
     cmd_query.add_argument(
+        "--run-dir",
+        type=str,
+        required=True,
+        help="Directory containing feature folders",
+    )
+    cmd_query.add_argument(
         "--k",
         type=int,
         default=5,
