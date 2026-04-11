@@ -2,29 +2,32 @@ from pathlib import Path
 
 
 def list_samples(
-    root: Path,  # sample dir
+    root: Path,
     extset: set[str] | None = None,  # allowed image file extensions
     limit: int | None = None,  # num of items returned
 ) -> list[Path]:  # returns list of path objects
     """
     List top level files in root with stable sort and optional filtering
     """
-    # iterate over files in root
-    items = [p for p in root.iterdir() if p.is_file()]
+    # collect files
+    items = []
+    for p in root.iterdir():
+        if not p.is_file():
+            continue
 
-    if extset is not None:
-        # return normalized file extensions
-        def suf(p: Path) -> str:
-            return p.suffix[1:].lower() if p.suffix else ""
+        # filter if extset is given
+        if extset is not None:
+            suffix = p.suffix.lower().lstrip(".")
+            if suffix not in extset:
+                continue
 
-        # append if image file
-        items = [p for p in items if suf(p) in extset]
+        items.append(p)
 
-    # sort by filename (deterministic)
-    items.sort(key=lambda p: p.name)
+    # deterministic order
+    items = sorted(items, key=lambda p: p.name)
 
-    if limit and limit > 0:
-        # shorten list to limit
+    # apply limit
+    if limit is not None:
         items = items[:limit]
 
     return items

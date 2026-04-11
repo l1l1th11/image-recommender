@@ -40,7 +40,7 @@ def pilot_dir(tmp_path: Path) -> Path:
 
 def test_db_happy_path(tmp_db: str) -> None:
     # get list of 3 sample images as path objects
-    sample_path_objects = list_samples(root=SAMPLES_DIR, limit=3)
+    sample_path_objects = list_samples(root=SAMPLES_DIR, extset={"jpg", "jpeg", "png"}, limit=3)
 
     # for each sample
     for sample in sample_path_objects:
@@ -80,7 +80,7 @@ def test_db_happy_path(tmp_db: str) -> None:
 
 def test_db_skip_and_log(tmp_db: str, caplog) -> None:
     # get list of 2 sample images as path objects
-    sample_path_objects = list_samples(root=SAMPLES_DIR, limit=2)
+    sample_path_objects = list_samples(root=SAMPLES_DIR, extset={"jpg", "jpeg", "png"}, limit=2)
 
     # for each sample
     for sample in sample_path_objects:
@@ -126,7 +126,7 @@ def test_db_skip_and_log(tmp_db: str, caplog) -> None:
 
 def test_db_raise(tmp_db: str) -> None:
     # get list of 2 sample images as path objects
-    sample_path_objects = list_samples(root=SAMPLES_DIR, limit=2)
+    sample_path_objects = list_samples(root=SAMPLES_DIR, extset={"jpg", "jpeg", "png"}, limit=2)
 
     # for each sample
     for sample in sample_path_objects:
@@ -190,7 +190,7 @@ def test_iter_ids_pilot(pilot_dir):
 
 def test_pilot_happy_path(pilot_dir, tmp_db: str) -> None:
     # get list of 3 sample images as path objects
-    sample_path_objects = list_samples(root=SAMPLES_DIR, limit=3)
+    sample_path_objects = list_samples(root=SAMPLES_DIR, extset={"jpg", "jpeg", "png"}, limit=3)
 
     # capture ids from db insertion
     db_ids = []
@@ -249,7 +249,7 @@ def test_pilot_happy_path(pilot_dir, tmp_db: str) -> None:
 
 def test_pilot_skip_and_log_missing_id(pilot_dir, tmp_db: str, caplog) -> None:
     # get list of 2 sample images as path objects
-    sample_path_objects = list_samples(root=SAMPLES_DIR, limit=2)
+    sample_path_objects = list_samples(root=SAMPLES_DIR, extset={"jpg", "jpeg", "png"}, limit=2)
 
     # capture ids from db insertion
     db_ids = []
@@ -315,7 +315,7 @@ def test_pilot_skip_and_log_missing_id(pilot_dir, tmp_db: str, caplog) -> None:
 
 def test_pilot_raise_load_error(pilot_dir, tmp_db: str) -> None:
     # get list of 2 sample images as path objects
-    sample_path_objects = list_samples(root=SAMPLES_DIR, limit=2)
+    sample_path_objects = list_samples(root=SAMPLES_DIR, extset={"jpg", "jpeg", "png"}, limit=2)
 
     # capture ids from db insertion
     db_ids = []
