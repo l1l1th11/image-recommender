@@ -204,3 +204,10 @@ def handle_explore_map(args) -> int:
     except Exception:
         logging.error("Explorer failed", exc_info=True)
         return 1
+
+
+def handle_query():
+    """
+    Handles the "query" CLI command.
+    """
+    pass
