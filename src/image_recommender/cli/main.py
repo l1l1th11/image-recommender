@@ -248,6 +248,12 @@ def build_parser() -> ArgumentParser:
         choices=SUPPORTED_FEATURES,
         help=f"Feature types to use (default: auto). Choices: {', '.join(SUPPORTED_FEATURES)}",
     )
+    cmd_query.add_argument(
+        "--display",
+        action="store_true",
+        default=False,
+        help="Prints (path, score) pairs and opens corresponding images one by one.",
+    )
 
     return parser
 

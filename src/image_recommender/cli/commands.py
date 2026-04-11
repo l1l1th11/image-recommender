@@ -12,6 +12,7 @@ from image_recommender.features.embedding import extract_embeddings_batch
 from image_recommender.features.extraction_pipeline import run_extraction
 from image_recommender.features.phash import extract_phashes
 from image_recommender.features.samples_driver_hsv import topk_on_samples
+from image_recommender.io.display import display_results
 from image_recommender.io.resolver import resolve_id_to_path
 from image_recommender.recommender.single_image_query import single_image_query
 from image_recommender.util.sampler import list_samples
@@ -231,9 +232,14 @@ def handle_query(args):
         # resolve (id, score) -> (filepath, score)
         top_k_resolved = resolve_id_to_path(top_k=top_k)
 
-        # print results
-        for filepath, score in top_k_resolved:
-            print(f"{filepath} {score}")
+        if args.display:
+            # call display function
+            display_results(top_k_resolved=top_k_resolved)
+
+        else:
+            # print results
+            for filepath, score in top_k_resolved:
+                print(f"{filepath} {score}")
 
         return 0
 
