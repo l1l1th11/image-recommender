@@ -35,6 +35,6 @@ Thumbs.db
 
 # Data: include samples, ignore rest
 data/*
-!data/.gitkeep
+!data/
+!data/samples/
 !data/samples/**
-

@@ -16,6 +16,7 @@ from .commands import (
     handle_make_pilot,
     handle_map_embeddings,
     handle_phash_on_samples,
+    handle_query,
 )
 
 
@@ -212,6 +213,46 @@ def build_parser() -> ArgumentParser:
         type=int,
         default=5,
         help="Number of nearest neighbors",
+    )
+
+    # run query command
+    cmd_query = subparsers.add_parser(
+        "query",
+        help=f"Recommend k most similar images for provided query image and selected feature types (auto: {SUPPORTED_FEATURES})",
+        description="Run search, resolve outputs to k (path, score) pairs (better matches first)",
+    )
+    cmd_query.set_defaults(run=handle_query)
+    cmd_query.add_argument(
+        "--image-path",
+        type=str,
+        required=True,
+        help="Path to query image",
+    )
+    cmd_query.add_argument(
+        "--run-dir",
+        type=str,
+        required=True,
+        help="Directory containing feature folders",
+    )
+    cmd_query.add_argument(
+        "--k",
+        type=int,
+        default=5,
+        help="Number of nearest neighbors to be returned",
+    )
+    cmd_query.add_argument(
+        "--feature-types",
+        type=str,
+        nargs="+",
+        default=None,
+        choices=SUPPORTED_FEATURES,
+        help=f"Feature types to use (default: auto). Choices: {', '.join(SUPPORTED_FEATURES)}",
+    )
+    cmd_query.add_argument(
+        "--display",
+        action="store_true",
+        default=False,
+        help="Prints (path, score) pairs and opens corresponding images one by one.",
     )
 
     return parser

@@ -166,7 +166,7 @@ def iter_id_images_from_samples(
     samples_path = Path(samples_path)
     paths = []
     for path in samples_path.iterdir():
-        if path.is_file():
+        if path.is_file() and path.suffix.lower() in {".jpg", ".jpeg", ".png"}:
             paths.append(path)
 
     # log warning if samples dir is empty

@@ -12,6 +12,9 @@ from image_recommender.features.embedding import extract_embeddings_batch
 from image_recommender.features.extraction_pipeline import run_extraction
 from image_recommender.features.phash import extract_phashes
 from image_recommender.features.samples_driver_hsv import topk_on_samples
+from image_recommender.io.display import display_results
+from image_recommender.io.resolver import resolve_id_to_path
+from image_recommender.recommender.single_image_query import single_image_query
 from image_recommender.util.sampler import list_samples
 from image_recommender.viz.explorer import run_embedding_explorer
 from image_recommender.viz.map_embeddings import run_map_embeddings
@@ -203,4 +206,44 @@ def handle_explore_map(args) -> int:
 
     except Exception:
         logging.error("Explorer failed", exc_info=True)
+        return 1
+
+
+def handle_query(args):
+    """
+    Handles the "query" CLI command.
+    """
+    try:
+        # run single image query
+        top_k, used_features = single_image_query(
+            query_path=Path(args.image_path),
+            run_dir=Path(args.run_dir),
+            k=args.k,
+            feature_types=args.feature_types,
+        )
+
+        # ensure requested features were used for query
+        if args.feature_types is not None:
+            if used_features != set(args.feature_types):
+                raise ValueError(
+                    f"Requested features {args.feature_types} but used {used_features}"
+                )
+
+        # resolve (id, score) -> (filepath, score)
+        top_k_resolved = resolve_id_to_path(top_k=top_k)
+
+        if args.display:
+            # call display function
+            display_results(top_k_resolved=top_k_resolved)
+
+        else:
+            # print results
+            for filepath, score in top_k_resolved:
+                print(f"{filepath} {score}")
+
+        return 0
+
+    # output error message
+    except ValueError as e:
+        print(f"Single image query failed: {e}")
         return 1
