@@ -23,6 +23,7 @@ def _compute_full_scores(
     weights: dict[str, float] | None = None,
     backend: str = "linear",
     k_candidates: int | None = None,
+    subset_ids: list[int] | None = None,
 ) -> tuple[np.ndarray, list[int], set[str]]:
     """
     Internal helper to compute full aligned score array for a single query.
@@ -56,10 +57,13 @@ def _compute_full_scores(
             k=k_candidates,
         )
 
-        subset_ids, _ = annoy_backend.search(query_embedding)
-
-        # define subset ids order as canonical order for this mode
-        canonical_ids = subset_ids.tolist()
+        if subset_ids is None:
+            # generate candidate subset via annoy
+            subset_ids_arr, _ = annoy_backend.search(query_embedding)
+            canonical_ids = subset_ids_arr.tolist()
+        else:
+            # reuse provided subset
+            canonical_ids = subset_ids
 
         # compute distances only for subset
         dist_dict = distances_all_features_subset(
