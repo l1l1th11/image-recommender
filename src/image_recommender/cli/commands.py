@@ -16,6 +16,7 @@ from image_recommender.io.display import display_results
 from image_recommender.io.resolver import resolve_id_to_path
 from image_recommender.recommender.multi_image_query import multi_image_query
 from image_recommender.recommender.single_image_query import single_image_query
+from image_recommender.search.annoy import AnnoySearchBackend
 from image_recommender.util.sampler import list_samples
 from image_recommender.viz.explorer import run_embedding_explorer
 from image_recommender.viz.map_embeddings import run_map_embeddings
@@ -227,6 +228,15 @@ def handle_query(args):
         if backend == "annoy" and k_candidates is None:
             raise ValueError("k-candidates must be provided when using annoy backend")
 
+        annoy_backend = None
+
+        if backend == "annoy":
+            annoy_backend = AnnoySearchBackend(
+                run_dir=Path(args.run_dir),
+                feature_type="embedding",
+                k=k_candidates,
+            )
+
         # for one query
         if len(query_paths) == 1:
             top_k, used_features = single_image_query(
@@ -236,6 +246,7 @@ def handle_query(args):
                 feature_types=args.feature_types,
                 backend=backend,
                 k_candidates=k_candidates,
+                annoy_backend=annoy_backend,
             )
 
         # for multiple queries
@@ -247,6 +258,7 @@ def handle_query(args):
                 feature_types=args.feature_types,
                 backend=backend,
                 k_candidates=k_candidates,
+                annoy_backend=annoy_backend,
             )
 
         # ensure requested features were used for query
