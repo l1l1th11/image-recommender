@@ -1,10 +1,11 @@
 from pathlib import Path
 
 import matplotlib.pyplot as plt
-import pandas as pd
 
 
 def pstats_to_dataframe(stats, project_filter="image_recommender"):
+    import pandas as pd
+
     """
     Converts pstats to a DataFrame for analysis and visualization.
     """
