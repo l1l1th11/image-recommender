@@ -1,0 +1,8 @@
+{
+  "created_at": "2026-04-11T22:00:45.808117+00:00",
+  "feature_dim": 64,
+  "feature_dtype": "uint8",
+  "feature_type": "phash",
+  "shard_size": 20,
+  "version": 1
+}

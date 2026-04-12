@@ -15,6 +15,7 @@ from image_recommender.db.connector import count_images
 from image_recommender.db.pilot import load_ids_pilot
 from image_recommender.features.embedding import extract_embeddings_batch
 from image_recommender.features.hsv import hsv_features
+from image_recommender.features.phash import extract_phash
 from image_recommender.features.storage import (
     VERSION,
     mark_success,
@@ -155,6 +156,11 @@ def run_extraction(
 
             if feature_type == "hsv":
                 feature = hsv_features(img_rgb=img_array)
+                features.append(feature)
+                ids.append(image_id)
+
+            elif feature_type == "phash":
+                feature = extract_phash(img_rgb=img_array)
                 features.append(feature)
                 ids.append(image_id)
 

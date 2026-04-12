@@ -3,6 +3,7 @@ from pathlib import Path
 
 import numpy as np
 
+from image_recommender.constants import SUPPORTED_FEATURES
 from image_recommender.features.embedding import extract_embedding
 from image_recommender.features.hsv import hsv_features
 from image_recommender.features.phash import extract_phash
@@ -13,8 +14,6 @@ from image_recommender.metrics.hamming import hamming_distance_to_many
 from image_recommender.recommender.scoring import compute_scores
 from image_recommender.search.linear import LinearSearchBackend
 from image_recommender.util.logs import get_logger
-
-SUPPORTED_FEATURES = {"hsv", "embedding", "phash"}
 
 logger = get_logger(__name__)
 
