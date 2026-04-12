@@ -1,0 +1,1 @@
+{"dim": 512, "metric": "angular", "n_trees": 200, "search_k": 5000000, "num_vectors": 20, "annoy_version": "1.17.3", "shards": [0]}

@@ -4,12 +4,15 @@ import numpy as np
 import pytest
 
 from image_recommender.features.storage import read_validate_shard
+from image_recommender.io.img_loader import load_rgb
 from image_recommender.metrics.chi import chi_distance_to_many
 from image_recommender.metrics.cosine import cosine_distance_to_many
 from image_recommender.recommender.query_helpers import (
     align_distances,
     distances_all_features,
+    distances_all_features_subset,
     distances_per_feature,
+    extract_query_features,
     get_score_arr,
     load_canonical_ids,
 )
@@ -143,6 +146,40 @@ def test_distances_per_feature_embedding():
         query=query_embedding,
     )
     assert np.array_equal(aligned_distances_embedding, aligned_distances_embedding_2)
+
+
+@pytest.mark.integration
+def test_distances_all_features_subset():
+    run_dir = Path("data/samples")
+    query_path = Path("data/samples/image_0007.jpeg")
+    subset_ids = [0, 1, 2]
+
+    # load image
+    img_rgb = load_rgb(query_path)
+
+    # extract query vectors
+    queries_by_feature = extract_query_features(
+        img_rgb=img_rgb,
+        feature_types=["hsv", "embedding"],
+    )
+
+    # compute distance dict for subset ids
+    dist_dict = distances_all_features_subset(
+        run_dir=run_dir,
+        queries_by_feature=queries_by_feature,
+        subset_ids=subset_ids,
+        feature_types=["hsv", "embedding"],
+    )
+
+    # ensure keys match expected
+    assert set(dist_dict.keys()) == {"hsv", "embedding"}
+
+    # ensure output has correct structure
+    for distances in dist_dict.values():
+        assert isinstance(distances, np.ndarray)
+        assert distances.ndim == 1
+        assert len(distances) == len(subset_ids)
+        assert np.isfinite(distances).all()
 
 
 @pytest.mark.integration
