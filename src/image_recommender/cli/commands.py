@@ -257,7 +257,7 @@ def handle_query(args):
                 )
 
         # resolve (id, score) -> (filepath, score)
-        top_k_resolved = resolve_id_to_path(top_k=top_k)
+        top_k_resolved = resolve_id_to_path(top_k=top_k, run_dir=args.run_dir)
 
         if args.display:
             # call display function

@@ -57,19 +57,18 @@ def _compute_full_scores(
             k=k_candidates,
         )
 
+        # determine candidate subset
         if subset_ids is None:
-            # generate candidate subset via annoy
             subset_ids_arr, _ = annoy_backend.search(query_embedding)
-            canonical_ids = subset_ids_arr.tolist()
+            candidate_ids = subset_ids_arr.tolist()
         else:
-            # reuse provided subset
-            canonical_ids = subset_ids
+            candidate_ids = subset_ids
 
-        # compute distances only for subset
-        dist_dict = distances_all_features_subset(
+        # compute distances and get aligned canonical ids
+        dist_dict, canonical_ids = distances_all_features_subset(
             run_dir=run_dir,
             queries_by_feature=queries_by_feature,
-            subset_ids=canonical_ids,
+            subset_ids=candidate_ids,
             feature_types=feature_types,
         )
 

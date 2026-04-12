@@ -195,7 +195,7 @@ def distances_all_features_subset(
     queries_by_feature: dict[str, np.ndarray],
     subset_ids: list[int],
     feature_types: list[str] | None = None,
-) -> dict[str, np.ndarray]:
+) -> tuple[dict[str, np.ndarray], list[int]]:
     """
     Computes distances from a single query to a subset of candidate ids for all available feature types.
 
@@ -207,6 +207,7 @@ def distances_all_features_subset(
 
     Output:
         {feature_type: distances (k,)} aligned to subset_ids order
+        shared subset: List of remaining (usable) candidate ids
 
     Raises:
         ValueError: If no valid features are available or subset ids are inconsistent
@@ -226,9 +227,8 @@ def distances_all_features_subset(
 
     if feature_types is None:
         features_to_process = available_features
-
-    # only keep requested features
     else:
+        # only keep requested features
         features_to_process = set(feature_types) & available_features
 
     if not features_to_process:
@@ -242,8 +242,10 @@ def distances_all_features_subset(
     }
 
     dist_dict = {}  # dict[str, np.ndarray]
+    valid_ids_per_feature = {}  # collect valid ids per feature
+    id_to_vec_per_feature = {}  # store mappings for reuse
 
-    # for each feature
+    # Step 1: collect valid ids & mappings
     for feature in sorted(features_to_process):
 
         # load all vectors and ids
@@ -265,16 +267,34 @@ def distances_all_features_subset(
             )
 
             # build id to vector mapping
-            for id_, vec in zip(ids, features, strict=True):  # pair -> (id, vector), ...
-                id_to_vec[id_] = vec  # key-value pair -> {id: vector , ...}
+            for id_, vec in zip(ids, features, strict=True):
+                id_to_vec[id_] = vec
 
-        # ensure all subset ids exist
-        missing_ids = [id_ for id_ in subset_ids if id_ not in id_to_vec]
-        if missing_ids:
-            raise ValueError(f"Missing {len(missing_ids)} ids in feature '{feature}' subset")
+        # determine valid ids for current feature
+        valid_ids = [id_ for id_ in subset_ids if id_ in id_to_vec]
+
+        if not valid_ids:
+            raise ValueError(f"No valid ids left for feature '{feature}'")
+
+        valid_ids_per_feature[feature] = set(valid_ids)
+        id_to_vec_per_feature[feature] = id_to_vec
+
+    # Step 2: compute shared subset
+    shared_ids = set.intersection(*valid_ids_per_feature.values())
+
+    if not shared_ids:
+        raise ValueError("No common ids across features after filtering")
+
+    # preserve original order
+    shared_subset_ids = [id_ for id_ in subset_ids if id_ in shared_ids]
+
+    # Step 3: compute distances on shared subset
+    for feature in sorted(features_to_process):
+
+        id_to_vec = id_to_vec_per_feature[feature]
 
         # build subset matrix in canonical order
-        subset_matrix = np.vstack([id_to_vec[id_] for id_ in subset_ids])
+        subset_matrix = np.vstack([id_to_vec[id_] for id_ in shared_subset_ids])
 
         # compute distances
         query = queries_by_feature[feature]
@@ -285,7 +305,7 @@ def distances_all_features_subset(
         # assign distances for current feature to final distance dict
         dist_dict[feature] = distances.astype(np.float32)
 
-    return dist_dict
+    return dist_dict, shared_subset_ids
 
 
 def get_score_arr(
