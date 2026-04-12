@@ -14,6 +14,11 @@ from image_recommender.features.phash import extract_phashes
 from image_recommender.features.samples_driver_hsv import topk_on_samples
 from image_recommender.io.display import display_results
 from image_recommender.io.resolver import resolve_id_to_path
+from image_recommender.profiling.prof_benchmark import run_single_image_query_benchmark
+from image_recommender.profiling.prof_runner import (
+    print_profile_insights,
+    run_query_profiling,
+)
 from image_recommender.recommender.multi_image_query import multi_image_query
 from image_recommender.recommender.single_image_query import single_image_query
 from image_recommender.util.sampler import list_samples
@@ -264,3 +269,23 @@ def handle_query(args):
     except ValueError as e:
         print(f"Query failed: {e}")
         return 1
+
+
+def handle_profile_query(args) -> int:
+    """
+    Handles the "profile-query" CLI command.
+    """
+    if not args.image_path:
+        raise ValueError("--image-path is required for profiling!")
+
+    _, __, stats_path, png_path = run_query_profiling(
+        func=run_single_image_query_benchmark,
+        query_path=Path(args.image_path),
+        run_dir=Path(args.run_dir),
+    )
+
+    if args.verbose:
+        print_profile_insights(stats_path)
+
+    print(f"Saved profiling plot to: {png_path}")
+    return 0
