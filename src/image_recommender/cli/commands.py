@@ -215,8 +215,11 @@ def handle_query(args):
     Handles the "query" CLI command.
     """
     try:
-
-        query_paths = [Path(p) for p in args.image_path]
+        # normalize image_path to list
+        if isinstance(args.image_path, str):
+            query_paths = [Path(args.image_path)]
+        else:
+            query_paths = [Path(p) for p in args.image_path]
 
         # for one query
         if len(query_paths) == 1:
