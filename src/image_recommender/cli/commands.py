@@ -14,6 +14,7 @@ from image_recommender.features.phash import extract_phashes
 from image_recommender.features.samples_driver_hsv import topk_on_samples
 from image_recommender.io.display import display_results
 from image_recommender.io.resolver import resolve_id_to_path
+from image_recommender.recommender.multi_image_query import multi_image_query
 from image_recommender.recommender.single_image_query import single_image_query
 from image_recommender.util.sampler import list_samples
 from image_recommender.viz.explorer import run_embedding_explorer
@@ -214,13 +215,29 @@ def handle_query(args):
     Handles the "query" CLI command.
     """
     try:
-        # run single image query
-        top_k, used_features = single_image_query(
-            query_path=Path(args.image_path),
-            run_dir=Path(args.run_dir),
-            k=args.k,
-            feature_types=args.feature_types,
-        )
+        # normalize image_path to list
+        if isinstance(args.image_path, str):
+            query_paths = [Path(args.image_path)]
+        else:
+            query_paths = [Path(p) for p in args.image_path]
+
+        # for one query
+        if len(query_paths) == 1:
+            top_k, used_features = single_image_query(
+                query_path=query_paths[0],
+                run_dir=Path(args.run_dir),
+                k=args.k,
+                feature_types=args.feature_types,
+            )
+
+        # for multiple queries
+        else:
+            top_k, used_features = multi_image_query(
+                query_paths=query_paths,
+                run_dir=Path(args.run_dir),
+                k=args.k,
+                feature_types=args.feature_types,
+            )
 
         # ensure requested features were used for query
         if args.feature_types is not None:
@@ -245,5 +262,5 @@ def handle_query(args):
 
     # output error message
     except ValueError as e:
-        print(f"Single image query failed: {e}")
+        print(f"Query failed: {e}")
         return 1

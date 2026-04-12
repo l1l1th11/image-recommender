@@ -225,8 +225,9 @@ def build_parser() -> ArgumentParser:
     cmd_query.add_argument(
         "--image-path",
         type=str,
+        nargs="+",
         required=True,
-        help="Path to query image",
+        help="Path to one or more query images",
     )
     cmd_query.add_argument(
         "--run-dir",

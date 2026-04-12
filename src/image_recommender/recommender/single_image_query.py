@@ -14,6 +14,48 @@ from image_recommender.util.logs import get_logger
 logger = get_logger(__name__)
 
 
+def _compute_full_scores(
+    query_path: str | Path,
+    run_dir: Path | str,
+    feature_types: list[str] | None = None,
+    weights: dict[str, float] | None = None,
+) -> tuple[np.ndarray, list[int], set[str]]:
+    """
+    Internal helper to compute full aligned score array for a single query.
+
+    Output:
+        score_arr: (N,) aligned scores
+        canonical_ids: list of candidate ids aligned to canonical candidate id order
+        used_features: set of features actually used
+    """
+    # load image
+    img_rgb = load_rgb(path=query_path)
+
+    # extract query features
+    queries_by_feature = extract_query_features(img_rgb=img_rgb, feature_types=feature_types)
+
+    # compute distances
+    dist_dict = distances_all_features(
+        run_dir=run_dir,
+        queries_by_feature=queries_by_feature,
+        feature_types=feature_types,
+    )
+
+    used_features = set(dist_dict.keys())
+
+    if not used_features:
+        raise ValueError("No features available after distance computation")
+
+    # select reference feature for canonical ids
+    reference_feature = sorted(used_features)[0]
+    canonical_ids = load_canonical_ids(run_dir=run_dir, feature_type=reference_feature)
+
+    # compute scores
+    score_arr = get_score_arr(dist_dict=dist_dict, weights=weights)
+
+    return score_arr, canonical_ids, used_features
+
+
 def single_image_query(
     query_path: str | Path,
     run_dir: Path | str,
@@ -22,7 +64,7 @@ def single_image_query(
     weights: dict[str, float] | None = None,
 ) -> tuple[list[tuple[int, float]], set[str]]:
     """
-    Runs a single image query and returns the top k most similar results.
+    Runs a single image query and returns the top k most similar results, as well as used feature types.
 
     Input:
         query_path: Path to query image
@@ -41,34 +83,14 @@ def single_image_query(
     Notes:
         Loads image from path
         Extracts query features
-        Computes per-candidate scores across available features
+        Computes per candidate scores across available features
         Ranks candidates by score (ascending)
         Returns top-k (id, score) pairs
     """
-    # load image
-    img_rgb = load_rgb(path=query_path)
-
-    # extract queries
-    queries_by_feature = extract_query_features(img_rgb=img_rgb, feature_types=feature_types)
-
-    # compute distance dict
-    dist_dict = distances_all_features(
-        run_dir=run_dir, queries_by_feature=queries_by_feature, feature_types=feature_types
+    # get aligned score array, canonical id list and used features set
+    score_arr, canonical_ids, used_features = _compute_full_scores(
+        query_path=query_path, run_dir=run_dir, feature_types=feature_types, weights=weights
     )
-
-    # get used features from keys
-    used_features = set(dist_dict.keys())
-
-    # check if any features are left after distance computation
-    if not used_features:
-        raise ValueError("No features available after distance computation")
-
-    # select a used feature as reference for canonical id computation
-    reference_feature = sorted(used_features)[0]
-    canonical_ids = load_canonical_ids(run_dir=run_dir, feature_type=reference_feature)
-
-    # get scores
-    score_arr = get_score_arr(dist_dict=dist_dict, weights=weights)
 
     # rank via indices (lowest -> highest)
     ranked_idxs = np.argsort(score_arr)
