@@ -7,7 +7,10 @@ from image_recommender.recommender.query_helpers import (
     SUPPORTED_FEATURES,
     load_canonical_ids,
 )
-from image_recommender.recommender.single_image_query import single_image_query
+from image_recommender.recommender.single_image_query import (
+    _compute_full_scores,
+    single_image_query,
+)
 
 
 @pytest.mark.integration
@@ -70,3 +73,31 @@ def test_single_image_query():
 
     assert top_k == top_k_2
     assert used_features == used_features_2
+
+
+@pytest.mark.integration
+def test_single_image_query_annoy_mode():
+    run_dir = Path("data/samples")
+    query_path = Path("data/samples/image_0007.jpeg")
+
+    score_arr, ids, used_features = _compute_full_scores(
+        query_path=query_path,
+        run_dir=run_dir,
+        backend="annoy",
+        k_candidates=5,
+    )
+
+    # check shape
+    assert len(score_arr) == len(ids)
+    assert len(ids) == 5
+
+    # check types
+    assert isinstance(score_arr, np.ndarray)
+    assert isinstance(ids, list)
+    assert isinstance(used_features, set)
+
+    # check numeric values
+    assert np.isfinite(score_arr).all()
+
+    # ensure no duplicates
+    assert len(set(ids)) == len(ids)

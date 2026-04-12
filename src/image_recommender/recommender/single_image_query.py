@@ -5,10 +5,12 @@ import numpy as np
 from image_recommender.io.img_loader import load_rgb
 from image_recommender.recommender.query_helpers import (
     distances_all_features,
+    distances_all_features_subset,
     extract_query_features,
     get_score_arr,
     load_canonical_ids,
 )
+from image_recommender.search.annoy import AnnoySearchBackend
 from image_recommender.util.logs import get_logger
 
 logger = get_logger(__name__)
@@ -19,6 +21,8 @@ def _compute_full_scores(
     run_dir: Path | str,
     feature_types: list[str] | None = None,
     weights: dict[str, float] | None = None,
+    backend: str = "linear",
+    k_candidates: int | None = None,
 ) -> tuple[np.ndarray, list[int], set[str]]:
     """
     Internal helper to compute full aligned score array for a single query.
@@ -33,6 +37,49 @@ def _compute_full_scores(
 
     # extract query features
     queries_by_feature = extract_query_features(img_rgb=img_rgb, feature_types=feature_types)
+
+    # annoy search
+    if backend == "annoy":
+        if "embedding" not in queries_by_feature:
+            raise ValueError("Annoy backend requires embedding feature")
+
+        if k_candidates is None:
+            raise ValueError("k_candidates must be provided for annoy backend")
+
+        # get embedding query
+        query_embedding = queries_by_feature["embedding"]
+
+        # run annoy to get candidate subset
+        annoy_backend = AnnoySearchBackend(
+            run_dir=run_dir,
+            feature_type="embedding",
+            k=k_candidates,
+        )
+
+        subset_ids, _ = annoy_backend.search(query_embedding)
+
+        # define subset ids order as canonical order for this mode
+        canonical_ids = subset_ids.tolist()
+
+        # compute distances only for subset
+        dist_dict = distances_all_features_subset(
+            run_dir=run_dir,
+            queries_by_feature=queries_by_feature,
+            subset_ids=canonical_ids,
+            feature_types=feature_types,
+        )
+
+        used_features = set(dist_dict.keys())
+
+        if not used_features:
+            raise ValueError("No features available after distance computation")
+
+        # compute scores
+        score_arr = get_score_arr(dist_dict=dist_dict, weights=weights)
+
+        return score_arr, canonical_ids, used_features
+
+    # linear search
 
     # compute distances
     dist_dict = distances_all_features(
