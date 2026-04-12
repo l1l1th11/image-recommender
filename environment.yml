@@ -21,6 +21,7 @@ dependencies:
   - matplotlib
   - plotly
   - dash
+  - pandas
 
   # testing
   - pytest
