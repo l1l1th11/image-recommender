@@ -8,13 +8,15 @@ from image_recommender.profiling.prof_viz import (
 )
 
 
-def run_query_profiling(func, *args, top_n: int = 10, **kwargs):
+def run_query_profiling(func, *args, output_dir: Path, top_n: int = 10, **kwargs):
     """
     Profiles a function and writes stats and plot.
     """
 
-    stats_path = Path("data/profiling/profile.stats")
-    png_path = Path("data/profiling/bottlenecks.png")
+    output_dir = Path(output_dir)
+
+    stats_path = output_dir / "profile.stats"
+    png_path = output_dir / "bottlenecks.png"
 
     run_profile(
         stats_path,

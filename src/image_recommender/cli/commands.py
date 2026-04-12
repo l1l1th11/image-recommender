@@ -280,6 +280,7 @@ def handle_profile_query(args) -> int:
     """
 
     mode = args.mode
+    output_dir = Path(args.output_dir)
 
     if mode == "single":
         if not args.image_path:
@@ -289,6 +290,7 @@ def handle_profile_query(args) -> int:
             func=run_single_image_query_benchmark,
             query_path=Path(args.image_path),
             run_dir=Path(args.run_dir),
+            output_dir=output_dir,
         )
 
     elif mode == "multi":
@@ -299,6 +301,7 @@ def handle_profile_query(args) -> int:
             func=run_multi_image_query_benchmark,
             query_paths=[Path(p) for p in args.image_paths],
             run_dir=Path(args.run_dir),
+            output_dir=output_dir,
         )
 
     else:

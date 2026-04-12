@@ -287,6 +287,12 @@ def build_parser() -> ArgumentParser:
         help="Directory containing feature folders",
     )
     cmd_profile.add_argument(
+        "--output-dir",
+        type=str,
+        default="data/profiling",
+        help="Directory where profiling outputs are saved",
+    )
+    cmd_profile.add_argument(
         "--verbose",
         action="store_true",
         help="Print detailed profiling insights",
