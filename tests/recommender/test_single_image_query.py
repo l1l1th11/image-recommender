@@ -76,7 +76,7 @@ def test_single_image_query():
 
 
 @pytest.mark.integration
-def test_single_image_query_annoy_mode():
+def test_compute_full_scores_annoy():
     run_dir = Path("data/samples")
     query_path = Path("data/samples/image_0007.jpeg")
 
@@ -101,3 +101,27 @@ def test_single_image_query_annoy_mode():
 
     # ensure no duplicates
     assert len(set(ids)) == len(ids)
+
+
+@pytest.mark.integration
+def test_single_image_query_annoy():
+    run_dir = Path("data/samples")
+    query_path = Path("data/samples/image_0007.jpeg")
+
+    top_k, used_features = single_image_query(
+        query_path=query_path,
+        run_dir=run_dir,
+        k=5,
+        backend="annoy",
+        k_candidates=10,
+    )
+
+    # check length matches k
+    assert len(top_k) == 5
+
+    # check types
+    assert isinstance(used_features, set)
+
+    for id_, score in top_k:
+        assert isinstance(id_, int)
+        assert isinstance(score, (float, np.floating))

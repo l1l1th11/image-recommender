@@ -109,6 +109,8 @@ def single_image_query(
     k: int,
     feature_types: list[str] | None = None,
     weights: dict[str, float] | None = None,
+    backend: str = "linear",
+    k_candidates: int | None = None,
 ) -> tuple[list[tuple[int, float]], set[str]]:
     """
     Runs a single image query and returns the top k most similar results, as well as used feature types.
@@ -119,6 +121,8 @@ def single_image_query(
         k: Number of top results to return
         feature_types: Optional subset of feature types to process
         weights: Optional weights (must match keys, sum to appr. 1)
+        backend: Linear search per deafult, or annoy based
+        k_candidates: Size of candidate subset retrieved by annoy (required for annoy backend)
 
     Output:
         top_k: List of (image_id, score) pairs sorted ascending (best match first)
@@ -136,7 +140,12 @@ def single_image_query(
     """
     # get aligned score array, canonical id list and used features set
     score_arr, canonical_ids, used_features = _compute_full_scores(
-        query_path=query_path, run_dir=run_dir, feature_types=feature_types, weights=weights
+        query_path=query_path,
+        run_dir=run_dir,
+        feature_types=feature_types,
+        weights=weights,
+        backend=backend,
+        k_candidates=k_candidates,
     )
 
     # rank via indices (lowest -> highest)
