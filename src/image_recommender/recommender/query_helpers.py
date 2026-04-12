@@ -244,7 +244,7 @@ def extract_query_features(
 
     else:
         # filter by selected feature types
-        features_to_process = SUPPORTED_FEATURES & set(feature_types)
+        features_to_process = set(SUPPORTED_FEATURES) & set(feature_types)
 
         # warn if requested features are not supported
         if not set(feature_types).issubset(SUPPORTED_FEATURES):
