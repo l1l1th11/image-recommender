@@ -1,3 +1,4 @@
+import time
 from pathlib import Path
 
 import numpy as np
@@ -26,7 +27,7 @@ def _compute_full_scores(
     k_candidates: int | None = None,
     subset_ids: list[int] | None = None,
     annoy_backend: AnnoySearchBackend | None = None,
-) -> tuple[np.ndarray, list[int], set[str]]:
+) -> tuple[np.ndarray, list[int], set[str], dict[str, float]]:
     """
     Internal helper to compute full aligned score array for a single query.
 
@@ -35,11 +36,19 @@ def _compute_full_scores(
         canonical_ids: list of candidate ids aligned to canonical candidate id order
         used_features: set of features actually used
     """
+    # timing container
+    timings = {}
+    t_total_start = time.perf_counter()
+
     # load image
+    t0 = time.perf_counter()
     img_rgb = load_rgb(path=query_path)
+    timings["load_image"] = time.perf_counter() - t0
 
     # extract query features
+    t0 = time.perf_counter()
     queries_by_feature = extract_query_features(img_rgb=img_rgb, feature_types=feature_types)
+    timings["feature_extraction"] = time.perf_counter() - t0
 
     # annoy search
     if backend == "annoy":
@@ -62,19 +71,25 @@ def _compute_full_scores(
             )
 
         # determine candidate subset
+        t0 = time.perf_counter()
+
         if subset_ids is None:
             subset_ids_arr, _ = annoy_backend.search(query_embedding)
             candidate_ids = subset_ids_arr.tolist()
         else:
             candidate_ids = subset_ids
 
+        timings["candidate_generation"] = time.perf_counter() - t0
+
         # compute distances and get aligned canonical ids
+        t0 = time.perf_counter()
         dist_dict, canonical_ids = distances_all_features_subset(
             run_dir=run_dir,
             queries_by_feature=queries_by_feature,
             subset_ids=candidate_ids,
             feature_types=feature_types,
         )
+        timings["distance_computation"] = time.perf_counter() - t0
 
         used_features = set(dist_dict.keys())
 
@@ -84,16 +99,21 @@ def _compute_full_scores(
         # compute scores
         score_arr = get_score_arr(dist_dict=dist_dict, weights=weights)
 
-        return score_arr, canonical_ids, used_features
+        # total time annoy
+        timings["total"] = time.perf_counter() - t_total_start
+
+        return score_arr, canonical_ids, used_features, timings
 
     # linear search
 
     # compute distances
+    t0 = time.perf_counter()
     dist_dict = distances_all_features(
         run_dir=run_dir,
         queries_by_feature=queries_by_feature,
         feature_types=feature_types,
     )
+    timings["distance_computation"] = time.perf_counter() - t0
 
     used_features = set(dist_dict.keys())
 
@@ -105,9 +125,14 @@ def _compute_full_scores(
     canonical_ids = load_canonical_ids(run_dir=run_dir, feature_type=reference_feature)
 
     # compute scores
+    t0 = time.perf_counter()
     score_arr = get_score_arr(dist_dict=dist_dict, weights=weights)
+    timings["scoring"] = time.perf_counter() - t0
 
-    return score_arr, canonical_ids, used_features
+    # total time linear
+    timings["total"] = time.perf_counter() - t_total_start
+
+    return score_arr, canonical_ids, used_features, timings
 
 
 def _compute_full_scores_from_features(
