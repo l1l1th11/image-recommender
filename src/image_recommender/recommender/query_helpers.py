@@ -228,24 +228,24 @@ def distances_all_features_subset(
     if feature_types is None:
         features_to_process = available_features
     else:
-        # only keep requested features
         features_to_process = set(feature_types) & available_features
 
     if not features_to_process:
         raise ValueError("No available features to process")
 
-    # distance functions
     distance_fn_dict = {
         "hsv": chi_distance_to_many,
         "embedding": cosine_distance_to_many,
         "phash": hamming_distance_to_many,
     }
 
-    dist_dict = {}  # dict[str, np.ndarray]
-    valid_ids_per_feature = {}  # collect valid ids per feature
-    id_to_vec_per_feature = {}  # store mappings for reuse
+    subset_id_set = set(subset_ids)
 
-    # Step 1: collect valid ids & mappings
+    dist_dict = {}
+    valid_ids_per_feature = {}
+    id_to_vec_per_feature = {}
+
+    # Step 1: collect only vectors needed for subset_ids
     for feature in sorted(features_to_process):
 
         # load all vectors and ids
@@ -266,9 +266,14 @@ def distances_all_features_subset(
                 shard_id=shard_id,
             )
 
-            # build id to vector mapping
+            # only keep vectors that belong to requested subset_ids
             for id_, vec in zip(ids, features, strict=True):
-                id_to_vec[id_] = vec
+                if id_ in subset_id_set:
+                    id_to_vec[id_] = vec
+
+            # early stop once all requested ids were found for current feature
+            if len(id_to_vec) == len(subset_id_set):
+                break
 
         # determine valid ids for current feature
         valid_ids = [id_ for id_ in subset_ids if id_ in id_to_vec]
@@ -279,7 +284,7 @@ def distances_all_features_subset(
         valid_ids_per_feature[feature] = set(valid_ids)
         id_to_vec_per_feature[feature] = id_to_vec
 
-    # Step 2: compute shared subset
+    # Step 2: compute shared subset across all usable features
     shared_ids = set.intersection(*valid_ids_per_feature.values())
 
     if not shared_ids:
@@ -290,7 +295,6 @@ def distances_all_features_subset(
 
     # Step 3: compute distances on shared subset
     for feature in sorted(features_to_process):
-
         id_to_vec = id_to_vec_per_feature[feature]
 
         # build subset matrix in canonical order
@@ -299,10 +303,9 @@ def distances_all_features_subset(
         # compute distances
         query = queries_by_feature[feature]
         distance_fn = distance_fn_dict[feature]
-
         distances = distance_fn(query, subset_matrix)
 
-        # assign distances for current feature to final distance dict
+        # assign distances of current feature to final distance dict
         dist_dict[feature] = distances.astype(np.float32)
 
     return dist_dict, shared_subset_ids
