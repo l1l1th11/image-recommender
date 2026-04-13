@@ -1,12 +1,13 @@
 import json
 from pathlib import Path
 
+from image_recommender.config import SAMPLES_DIR
 from image_recommender.db.connector import get_path_by_id
 
 
 def resolve_id_to_path(
     top_k: list[tuple[int, float]],
-    run_dir: Path | str = "data/samples",
+    run_dir: Path | str = SAMPLES_DIR,
 ) -> list[tuple[Path, float]]:
     """
     Resolves (id, score) pairs to (path, score).
@@ -18,7 +19,7 @@ def resolve_id_to_path(
     run_dir = Path(run_dir)
 
     # samples mode
-    if run_dir == Path("data/samples"):
+    if run_dir == SAMPLES_DIR:
         samples_dir = run_dir
         mapping_path = samples_dir / "id_to_filename.json"
 
