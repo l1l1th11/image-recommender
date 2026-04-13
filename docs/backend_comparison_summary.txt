@@ -1,0 +1,58 @@
+1. Setup
+
+Queries: 10 dataset images
+Features: embedding, HSV, pHash (equal weights)
+Top-k: 5
+k_candidates tested: 50, 200, 1000, 10000
+
+
+
+2. Quantitative results
+
+k_candidates = 50
+  avg_overlap     = 0.36	min_overlap     = 0.20		speedup         = 1.73x
+
+k_candidates = 200		
+avg_overlap     = 0.40		min_overlap     = 0.20		speedup         = 2.87x
+
+k_candidates = 1000
+avg_overlap     = 0.54		min_overlap     = 0.40		speedup         = 3.06x
+
+k_candidates = 10000
+avg_overlap     = 0.68		min_overlap     = 0.60		speedup         = 2.80x
+
+
+
+3. Qualitative observations
+
+Bread query: 
+Annoy produced more semantically consistent results (bread/baked goods), while linear sometimes returned color-similar but less relevant images.
+
+Skyline query: 
+Annoy and linear results were nearly identical.
+
+Water wheel query:
+Annoy produced structurally similar but semantically different results (cactus, fireworks, umbrellas), however visually they were also plausible matches.
+
+Conclusion: Lower overlap does not necessarily imply worse perceptual quality.
+
+
+
+4. Interpretation
+
+Overlap of k results measures agreement with linear ranking, but does not fully determine perceptual similarity.
+Annoy introduces an embedding based similarity bias that can improve semantic consistency in some cases.
+
+
+
+5. Conclusion
+
+Although lower values of k_candidates already produce visually plausible results, they show unstable behavior across queries, as reflected by low-minimum overlap values (as low as 0.20). This indicates that relevant candidates are frequently missed in some queries.
+
+Increasing k_candidates improves both average and worst-case overlap, with diminishing returns beyond k = 1000. However k = 10000 is the first configuration where the minimum overlap reaches a more stable level (0.60), reducing the risk of very low overlap for individual queries.
+
+Qualitative inspection shows that disagreement with the linear baseline does not necessarily imply worse perceptual quality, as annoy based retrieval generally returns semantically consistent results.
+
+k_candidates = 10000 was selected as a practical default, as it provides stable behavior across queries while still achieving a significant runtime improvement (ca. 2.8× speedup) compared to linear search.
+
+
