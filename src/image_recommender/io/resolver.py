@@ -6,7 +6,7 @@ from image_recommender.db.connector import get_path_by_id
 
 def resolve_id_to_path(
     top_k: list[tuple[int, float]],
-    run_dir: Path | str,
+    run_dir: Path | str = "data/samples",
 ) -> list[tuple[Path, float]]:
     """
     Resolves (id, score) pairs to (path, score).
