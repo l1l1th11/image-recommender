@@ -40,8 +40,15 @@ def _multi_args(tmp_path, run_dir, imgs):
 
 def _assert_outputs(tmp_path):
     out = tmp_path / "profiling"
-    assert (out / "profile.stats").exists()
-    assert (out / "bottlenecks.png").exists()
+
+    stats = out / "profile.stats"
+    png = out / "bottlenecks.png"
+
+    assert stats.exists()
+    assert png.exists()
+
+    assert stats.stat().st_size > 0
+    assert png.stat().st_size > 0
 
 
 def test_cli_single_smoke(tmp_path, samples):
