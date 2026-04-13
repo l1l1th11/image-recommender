@@ -2,6 +2,7 @@ from pathlib import Path
 
 import numpy as np
 
+from image_recommender.db.connector import get_path_by_id
 from image_recommender.recommender.single_image_query import _compute_full_scores
 
 
@@ -10,14 +11,13 @@ def run_queries(query_ids, run_dir, backend):
 
     for qid in query_ids:
         # resolve path via db
-        from image_recommender.db.connector import get_path_by_id
-
         query_path = get_path_by_id(int(qid))
 
         _, _, _, timings = _compute_full_scores(
             query_path=query_path,
             run_dir=run_dir,
             backend=backend,
+            k_candidates=10000,
         )
 
         results.append(timings)
@@ -57,12 +57,12 @@ def main():
     _ = run_queries(query_ids[:2], run_dir, backend="linear")
     _ = run_queries(query_ids[:2], run_dir, backend="annoy")
 
-    # ---- linear ----
+    # linear
     lin_results = run_queries(query_ids, run_dir, backend="linear")
     lin_agg = aggregate(lin_results)
     print_report("LINEAR", lin_agg)
 
-    # ---- annoy ----
+    # annoy
     ann_results = run_queries(query_ids, run_dir, backend="annoy")
     ann_agg = aggregate(ann_results)
     print_report("ANNOY", ann_agg)
