@@ -16,6 +16,7 @@ from .commands import (
     handle_make_pilot,
     handle_map_embeddings,
     handle_phash_on_samples,
+    handle_profile_query,
     handle_query,
 )
 
@@ -267,6 +268,47 @@ def build_parser() -> ArgumentParser:
         action="store_true",
         default=False,
         help="Prints (path, score) pairs and opens corresponding images one by one.",
+    )
+
+    # profile command
+    cmd_profile = subparsers.add_parser(
+        "profile-query",
+        help="Profile full single-image query pipeline",
+        description="Runs single-image query with cProfile and outputs stats and bottleneck plot",
+    )
+    cmd_profile.set_defaults(run=handle_profile_query)
+    cmd_profile.add_argument(
+        "--mode",
+        type=str,
+        required=True,
+        help="Profiling mode to run. Options: single | multi",
+    )
+    cmd_profile.add_argument(
+        "--image-path",
+        required=False,
+        help="Single image path (required for single mode)",
+    )
+    cmd_profile.add_argument(
+        "--image-paths",
+        nargs="+",
+        required=False,
+        help="Multiple image paths (required for multi mode)",
+    )
+    cmd_profile.add_argument(
+        "--run-dir",
+        required=True,
+        help="Directory containing feature folders",
+    )
+    cmd_profile.add_argument(
+        "--output-dir",
+        type=str,
+        default="data/profiling",
+        help="Directory where profiling outputs are saved",
+    )
+    cmd_profile.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Print detailed profiling insights",
     )
 
     return parser

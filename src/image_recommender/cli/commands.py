@@ -14,6 +14,14 @@ from image_recommender.features.phash import extract_phashes
 from image_recommender.features.samples_driver_hsv import topk_on_samples
 from image_recommender.io.display import display_results
 from image_recommender.io.resolver import resolve_id_to_path
+from image_recommender.profiling.prof_benchmark import (
+    run_multi_image_query_benchmark,
+    run_single_image_query_benchmark,
+)
+from image_recommender.profiling.prof_runner import (
+    print_profile_insights,
+    run_query_profiling,
+)
 from image_recommender.recommender.multi_image_query import multi_image_query
 from image_recommender.recommender.single_image_query import single_image_query
 from image_recommender.search.annoy import AnnoySearchBackend
@@ -286,3 +294,43 @@ def handle_query(args):
     except ValueError as e:
         print(f"Query failed: {e}")
         return 1
+
+
+def handle_profile_query(args) -> int:
+    """
+    Handles the "profile-query" CLI command.
+    """
+
+    mode = args.mode
+    output_dir = Path(args.output_dir)
+
+    if mode == "single":
+        if not args.image_path:
+            raise ValueError("single mode requires --image-path")
+
+        _, __, stats_path, png_path = run_query_profiling(
+            func=run_single_image_query_benchmark,
+            query_path=Path(args.image_path),
+            run_dir=Path(args.run_dir),
+            output_dir=output_dir,
+        )
+
+    elif mode == "multi":
+        if not args.image_paths:
+            raise ValueError("multi mode requires --image-paths")
+
+        _, __, stats_path, png_path = run_query_profiling(
+            func=run_multi_image_query_benchmark,
+            query_paths=[Path(p) for p in args.image_paths],
+            run_dir=Path(args.run_dir),
+            output_dir=output_dir,
+        )
+
+    else:
+        raise ValueError(f"Unknown profiling mode: {mode}")
+
+    if args.verbose:
+        print_profile_insights(stats_path)
+
+    print(f"Saved profiling plot to: {png_path}")
+    return 0
