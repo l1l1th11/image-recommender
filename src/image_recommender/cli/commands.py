@@ -221,6 +221,12 @@ def handle_query(args):
         else:
             query_paths = [Path(p) for p in args.image_path]
 
+        backend = getattr(args, "backend", "linear")
+        k_candidates = getattr(args, "k_candidates", None)
+
+        if backend == "annoy" and k_candidates is None:
+            raise ValueError("k-candidates must be provided when using annoy backend")
+
         # for one query
         if len(query_paths) == 1:
             top_k, used_features = single_image_query(
@@ -228,6 +234,8 @@ def handle_query(args):
                 run_dir=Path(args.run_dir),
                 k=args.k,
                 feature_types=args.feature_types,
+                backend=backend,
+                k_candidates=k_candidates,
             )
 
         # for multiple queries
@@ -237,6 +245,8 @@ def handle_query(args):
                 run_dir=Path(args.run_dir),
                 k=args.k,
                 feature_types=args.feature_types,
+                backend=backend,
+                k_candidates=k_candidates,
             )
 
         # ensure requested features were used for query

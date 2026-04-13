@@ -190,6 +190,104 @@ def distances_all_features(
     return dist_dict
 
 
+def distances_all_features_subset(
+    run_dir: Path | str,
+    queries_by_feature: dict[str, np.ndarray],
+    subset_ids: list[int],
+    feature_types: list[str] | None = None,
+) -> dict[str, np.ndarray]:
+    """
+    Computes distances from a single query to a subset of candidate ids for all available feature types.
+
+    Input:
+        run_dir: Directory containing feature folders
+        queries_by_feature: {feature_type: query_vector (D,)}
+        subset_ids: List of candidate ids defining the subset and order
+        feature_types: Optional subset of feature types to process
+
+    Output:
+        {feature_type: distances (k,)} aligned to subset_ids order
+
+    Raises:
+        ValueError: If no valid features are available or subset ids are inconsistent
+    """
+    run_dir = Path(run_dir)
+
+    # discover available features in run_dir
+    features_run_dir = set(
+        feature_dir.name for feature_dir in run_dir.iterdir() if feature_dir.is_dir()
+    )
+
+    # features from query
+    features_query = set(queries_by_feature.keys())
+
+    # intersection
+    available_features = features_query & features_run_dir
+
+    if feature_types is None:
+        features_to_process = available_features
+
+    # only keep requested features
+    else:
+        features_to_process = set(feature_types) & available_features
+
+    if not features_to_process:
+        raise ValueError("No available features to process")
+
+    # distance functions
+    distance_fn_dict = {
+        "hsv": chi_distance_to_many,
+        "embedding": cosine_distance_to_many,
+        "phash": hamming_distance_to_many,
+    }
+
+    dist_dict = {}  # dict[str, np.ndarray]
+
+    # for each feature
+    for feature in sorted(features_to_process):
+
+        # load all vectors and ids
+        feature_dir = run_dir / feature
+        shard_dirs = sorted(p for p in feature_dir.glob("shard_*") if p.is_dir())
+
+        id_to_vec = {}  # dict[int, np.ndarray]
+
+        # go though each shard
+        for shard_dir in shard_dirs:
+            # get shard id
+            shard_id = int(shard_dir.name.split("_")[1])
+
+            # read shard
+            features, ids = read_validate_shard(
+                run_dir=run_dir,
+                feature_type=feature,
+                shard_id=shard_id,
+            )
+
+            # build id to vector mapping
+            for id_, vec in zip(ids, features, strict=True):  # pair -> (id, vector), ...
+                id_to_vec[id_] = vec  # key-value pair -> {id: vector , ...}
+
+        # ensure all subset ids exist
+        missing_ids = [id_ for id_ in subset_ids if id_ not in id_to_vec]
+        if missing_ids:
+            raise ValueError(f"Missing {len(missing_ids)} ids in feature '{feature}' subset")
+
+        # build subset matrix in canonical order
+        subset_matrix = np.vstack([id_to_vec[id_] for id_ in subset_ids])
+
+        # compute distances
+        query = queries_by_feature[feature]
+        distance_fn = distance_fn_dict[feature]
+
+        distances = distance_fn(query, subset_matrix)
+
+        # assign distances for current feature to final distance dict
+        dist_dict[feature] = distances.astype(np.float32)
+
+    return dist_dict
+
+
 def get_score_arr(
     dist_dict: dict[str, np.ndarray],
     weights: dict[str, float] | None = None,

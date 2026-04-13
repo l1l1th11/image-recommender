@@ -14,6 +14,8 @@ def multi_image_query(
     k: int,
     feature_types: list[str] | None = None,
     weights: dict[str, float] | None = None,
+    backend: str = "linear",
+    k_candidates: int | None = None,
 ) -> tuple[list[tuple[int, float]], set[str]]:
     """
     Runs a multi image query by aggregating aligned per query score arrays via mean.
@@ -24,6 +26,7 @@ def multi_image_query(
         k: Number of top results to return
         feature_types: Optional subset of feature types to process
         weights: Optional weights (must match keys, sum to appr. 1)
+        k_candidates: Size of candidate subset retrieved by annoy (required for annoy backend)
 
     Output:
         top_k: List of (image_id, score) pairs sorted ascending (best match first)
@@ -39,32 +42,43 @@ def multi_image_query(
     score_arrays = []
     reference_ids = None
     reference_features = None
+    first_query = query_paths[0]
 
-    for query_path in query_paths:
-        # get aligned score array, canonical id list and used features set
+    # generate subset from first query
+    score_arr, canonical_ids, used_features = _compute_full_scores(
+        query_path=first_query,
+        run_dir=run_dir,
+        feature_types=feature_types,
+        weights=weights,
+        backend=backend,
+        k_candidates=k_candidates,
+    )
+
+    score_arrays = [score_arr]
+    reference_ids = canonical_ids
+    reference_features = used_features
+
+    # process remaining queries
+    for query_path in query_paths[1:]:
+
+        # compute scores based on first queries subset
         score_arr, canonical_ids, used_features = _compute_full_scores(
             query_path=query_path,
             run_dir=run_dir,
             feature_types=feature_types,
             weights=weights,
+            backend=backend,
+            k_candidates=k_candidates,
+            subset_ids=reference_ids if backend == "annoy" else None,
         )
 
-        # use first query as reference for canonical id ordering & used features
-        if reference_ids is None:
-            reference_ids = canonical_ids
-            reference_features = used_features
+        # canonical id check
+        if canonical_ids != reference_ids:
+            raise ValueError("Canonical candidate ids differ across query runs")
 
-        # check following queries for mismatch
-        else:
-            if canonical_ids != reference_ids:
-                raise ValueError("Canonical candidate ids differ across query runs")
-
-            if used_features != reference_features:
-                raise ValueError("Used feature sets differ across query runs")
-
-        # ensure score array shapes match
-        if score_arrays and score_arr.shape != score_arrays[0].shape:
-            raise ValueError("Score array shapes differ across query runs")
+        # feature consistency check
+        if used_features != reference_features:
+            raise ValueError("Used feature sets differ across query runs")
 
         score_arrays.append(score_arr)
 

@@ -230,6 +230,19 @@ def build_parser() -> ArgumentParser:
         help="Path to one or more query images",
     )
     cmd_query.add_argument(
+        "--backend",
+        type=str,
+        choices=["linear", "annoy"],
+        default="linear",
+        help="Search backend to use (default: linear)",
+    )
+    cmd_query.add_argument(
+        "--k-candidates",
+        type=int,
+        default=None,
+        help="Number of candidates for Annoy backend (required if backend=annoy)",
+    )
+    cmd_query.add_argument(
         "--run-dir",
         type=str,
         required=True,

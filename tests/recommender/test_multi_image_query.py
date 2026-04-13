@@ -74,7 +74,23 @@ def test_multi_query_determinism():
     k = 5
     query_paths = [Path("data/samples/image_0007.jpeg"), Path("data/samples/image_1306.jpg")]
 
-    result1 = multi_image_query(query_paths, run_dir, k)
-    result2 = multi_image_query(query_paths, run_dir, k)
+    result_1 = multi_image_query(query_paths, run_dir, k)
+    result_2 = multi_image_query(query_paths, run_dir, k)
 
-    assert result1 == result2
+    assert result_1 == result_2
+
+
+@pytest.mark.integration
+def test_multi_image_query_annoy_deterministic():
+    run_dir = Path("data/samples")
+
+    query_paths = [Path("data/samples/image_0007.jpeg"), Path("data/samples/image_1306.jpg")]
+
+    result_1 = multi_image_query(
+        query_paths=query_paths, run_dir=run_dir, k=5, backend="annoy", k_candidates=10
+    )
+    result_2 = multi_image_query(
+        query_paths=query_paths, run_dir=run_dir, k=5, backend="annoy", k_candidates=10
+    )
+
+    assert result_1 == result_2
