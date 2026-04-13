@@ -5,7 +5,7 @@ import numpy as np
 
 import image_recommender.features.samples_driver_embedding as embedding_driver
 import image_recommender.features.samples_driver_phash as phash_driver
-from image_recommender.config import SAMPLES_DIR
+from image_recommender.config import DEFAULT_K_CANDIDATES, SAMPLES_DIR
 from image_recommender.constants import IMAGE_EXTS
 from image_recommender.db.pilot import create_pilot_set
 from image_recommender.features.embedding import extract_embeddings_batch
@@ -225,16 +225,16 @@ def handle_query(args):
         backend = getattr(args, "backend", "linear")
         k_candidates = getattr(args, "k_candidates", None)
 
-        if backend == "annoy" and k_candidates is None:
-            raise ValueError("k-candidates must be provided when using annoy backend")
-
         annoy_backend = None
 
         if backend == "annoy":
+            # apply default
+            effective_k = k_candidates if k_candidates is not None else DEFAULT_K_CANDIDATES
+
             annoy_backend = AnnoySearchBackend(
                 run_dir=Path(args.run_dir),
                 feature_type="embedding",
-                k=k_candidates,
+                k=effective_k,
             )
 
         # for one query

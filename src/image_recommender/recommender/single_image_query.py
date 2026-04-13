@@ -2,6 +2,7 @@ from pathlib import Path
 
 import numpy as np
 
+from image_recommender.config import DEFAULT_K_CANDIDATES
 from image_recommender.io.img_loader import load_rgb
 from image_recommender.recommender.query_helpers import (
     distances_all_features,
@@ -45,8 +46,9 @@ def _compute_full_scores(
         if "embedding" not in queries_by_feature:
             raise ValueError("Annoy backend requires embedding feature")
 
+        # apply default
         if k_candidates is None:
-            raise ValueError("k_candidates must be provided for annoy backend")
+            k_candidates = DEFAULT_K_CANDIDATES
 
         # get embedding query
         query_embedding = queries_by_feature["embedding"]
@@ -103,6 +105,81 @@ def _compute_full_scores(
     canonical_ids = load_canonical_ids(run_dir=run_dir, feature_type=reference_feature)
 
     # compute scores
+    score_arr = get_score_arr(dist_dict=dist_dict, weights=weights)
+
+    return score_arr, canonical_ids, used_features
+
+
+def _compute_full_scores_from_features(
+    queries_by_feature: dict[str, np.ndarray],
+    run_dir: Path | str,
+    feature_types: list[str] | None = None,
+    weights: dict[str, float] | None = None,
+    backend: str = "linear",
+    k_candidates: int | None = None,
+    subset_ids: list[int] | None = None,
+    annoy_backend: AnnoySearchBackend | None = None,
+) -> tuple[np.ndarray, list[int], set[str]]:
+    """
+    Variant of _compute_full_scores that bypasses image loading & feature extraction.
+    Used for controlled evaluation with precomputed query features.
+    """
+
+    # annoy
+    if backend == "annoy":
+        if "embedding" not in queries_by_feature:
+            raise ValueError("Annoy backend requires embedding feature")
+
+        if k_candidates is None:
+            k_candidates = DEFAULT_K_CANDIDATES
+
+        query_embedding = queries_by_feature["embedding"]
+
+        if annoy_backend is None:
+            annoy_backend = AnnoySearchBackend(
+                run_dir=run_dir,
+                feature_type="embedding",
+                k=k_candidates,
+            )
+
+        if subset_ids is None:
+            subset_ids_arr, _ = annoy_backend.search(query_embedding)
+            candidate_ids = subset_ids_arr.tolist()
+        else:
+            candidate_ids = subset_ids
+
+        dist_dict, canonical_ids = distances_all_features_subset(
+            run_dir=run_dir,
+            queries_by_feature=queries_by_feature,
+            subset_ids=candidate_ids,
+            feature_types=feature_types,
+        )
+
+        used_features = set(dist_dict.keys())
+
+        if not used_features:
+            raise ValueError("No features available after distance computation")
+
+        score_arr = get_score_arr(dist_dict=dist_dict, weights=weights)
+
+        return score_arr, canonical_ids, used_features
+
+    # linear
+
+    dist_dict = distances_all_features(
+        run_dir=run_dir,
+        queries_by_feature=queries_by_feature,
+        feature_types=feature_types,
+    )
+
+    used_features = set(dist_dict.keys())
+
+    if not used_features:
+        raise ValueError("No features available after distance computation")
+
+    reference_feature = sorted(used_features)[0]
+    canonical_ids = load_canonical_ids(run_dir=run_dir, feature_type=reference_feature)
+
     score_arr = get_score_arr(dist_dict=dist_dict, weights=weights)
 
     return score_arr, canonical_ids, used_features
