@@ -1,46 +1,60 @@
 import json
 from pathlib import Path
 
+from image_recommender.config import SAMPLES_DIR
+from image_recommender.db.connector import get_path_by_id
 
-def resolve_id_to_path(top_k: list[tuple[int, float]]) -> list[tuple[Path, float]]:
+
+def resolve_id_to_path(
+    top_k: list[tuple[int, float]],
+    run_dir: Path | str = SAMPLES_DIR,
+) -> list[tuple[Path, float]]:
     """
-    Resolves query results from (id, score) pairs to (path, score) pairs using samples id to filename mapping.
+    Resolves (id, score) pairs to (path, score).
 
-    Input:
-        top_k: List of (image_id, score) pairs returned by query pipeline
-
-    Output:
-        List of (image_path, score) pairs in same order as input
-
-    Raises:
-        ValueError: If an image_id is not found in the mapping
+    Uses:
+        - Samples mapping if run_dir == data/samples
+        - DB resolver otherwise
     """
-    # build mapping path
-    samples_dir = Path("data/samples")
-    mapping_path = samples_dir / "id_to_filename.json"
+    run_dir = Path(run_dir)
 
+    # samples mode
+    if run_dir == SAMPLES_DIR:
+        samples_dir = run_dir
+        mapping_path = samples_dir / "id_to_filename.json"
+
+        with open(mapping_path) as f:
+            mapping = json.load(f)
+
+        mapping = {int(k): v for k, v in mapping.items()}
+
+        top_k_resolved = []
+
+        for image_id, score in top_k:
+            try:
+                filename = mapping[image_id]
+            except KeyError as e:
+                raise ValueError(f"Id {image_id} not found in samples mapping") from e
+
+            filepath = samples_dir / filename
+            top_k_resolved.append((filepath, score))
+
+        return top_k_resolved
+
+    # full dataset mode
     top_k_resolved = []
 
-    # load mapping
-    with open(mapping_path) as f:
-        mapping = json.load(f)
-
-    # normalize (keys -> int)
-    mapping = {int(k): v for k, v in mapping.items()}
-
     for image_id, score in top_k:
-
-        # map filename to id
         try:
-            filename = mapping[image_id]
+            path_str = get_path_by_id(image_id)
+        except Exception as e:
+            raise ValueError(f"Id {image_id} could not be resolved via DB") from e
 
-        except KeyError as e:
-            raise ValueError(f"Id {image_id} not found in mapping") from e
+        filepath = Path(path_str)
 
-        # append path prefix
-        filepath = samples_dir / filename
+        if not filepath.exists():
+            raise ValueError(f"Resolved path does not exist: {filepath}")
 
-        # build tuples
         top_k_resolved.append((filepath, score))
 
     return top_k_resolved

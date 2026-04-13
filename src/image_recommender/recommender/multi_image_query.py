@@ -3,6 +3,7 @@ from pathlib import Path
 import numpy as np
 
 from image_recommender.recommender.single_image_query import _compute_full_scores
+from image_recommender.search.annoy import AnnoySearchBackend
 from image_recommender.util.logs import get_logger
 
 logger = get_logger(__name__)
@@ -16,6 +17,7 @@ def multi_image_query(
     weights: dict[str, float] | None = None,
     backend: str = "linear",
     k_candidates: int | None = None,
+    annoy_backend: AnnoySearchBackend | None = None,
 ) -> tuple[list[tuple[int, float]], set[str]]:
     """
     Runs a multi image query by aggregating aligned per query score arrays via mean.
@@ -52,6 +54,7 @@ def multi_image_query(
         weights=weights,
         backend=backend,
         k_candidates=k_candidates,
+        annoy_backend=annoy_backend,
     )
 
     score_arrays = [score_arr]
@@ -69,6 +72,7 @@ def multi_image_query(
             weights=weights,
             backend=backend,
             k_candidates=k_candidates,
+            annoy_backend=annoy_backend,
             subset_ids=reference_ids if backend == "annoy" else None,
         )
 

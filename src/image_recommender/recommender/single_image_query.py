@@ -24,6 +24,7 @@ def _compute_full_scores(
     backend: str = "linear",
     k_candidates: int | None = None,
     subset_ids: list[int] | None = None,
+    annoy_backend: AnnoySearchBackend | None = None,
 ) -> tuple[np.ndarray, list[int], set[str]]:
     """
     Internal helper to compute full aligned score array for a single query.
@@ -51,25 +52,25 @@ def _compute_full_scores(
         query_embedding = queries_by_feature["embedding"]
 
         # run annoy to get candidate subset
-        annoy_backend = AnnoySearchBackend(
-            run_dir=run_dir,
-            feature_type="embedding",
-            k=k_candidates,
-        )
+        if annoy_backend is None:
+            annoy_backend = AnnoySearchBackend(
+                run_dir=run_dir,
+                feature_type="embedding",
+                k=k_candidates,
+            )
 
+        # determine candidate subset
         if subset_ids is None:
-            # generate candidate subset via annoy
             subset_ids_arr, _ = annoy_backend.search(query_embedding)
-            canonical_ids = subset_ids_arr.tolist()
+            candidate_ids = subset_ids_arr.tolist()
         else:
-            # reuse provided subset
-            canonical_ids = subset_ids
+            candidate_ids = subset_ids
 
-        # compute distances only for subset
-        dist_dict = distances_all_features_subset(
+        # compute distances and get aligned canonical ids
+        dist_dict, canonical_ids = distances_all_features_subset(
             run_dir=run_dir,
             queries_by_feature=queries_by_feature,
-            subset_ids=canonical_ids,
+            subset_ids=candidate_ids,
             feature_types=feature_types,
         )
 
@@ -115,6 +116,7 @@ def single_image_query(
     weights: dict[str, float] | None = None,
     backend: str = "linear",
     k_candidates: int | None = None,
+    annoy_backend: AnnoySearchBackend | None = None,
 ) -> tuple[list[tuple[int, float]], set[str]]:
     """
     Runs a single image query and returns the top k most similar results, as well as used feature types.
@@ -150,6 +152,7 @@ def single_image_query(
         weights=weights,
         backend=backend,
         k_candidates=k_candidates,
+        annoy_backend=annoy_backend,
     )
 
     # rank via indices (lowest -> highest)
