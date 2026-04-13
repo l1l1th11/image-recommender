@@ -8,9 +8,14 @@ matplotlib.use("Agg")  # non-interactive backend
 import matplotlib.pyplot as plt
 
 
-def validate_coordinates(coords: np.ndarray, expected_dim: int):
+def validate_coordinates(coords: np.ndarray, expected_dim: int) -> None:
     """
     Validates that coordinates are a 2D array with shape (N, expected_dim).
+
+    Inputs:
+    - coords (N, expected_dim)
+    - expected_dim
+    Output: None
     """
     coords = np.asarray(coords)
 
@@ -37,7 +42,8 @@ def plot_2d(
 ) -> plt.Figure:
     """
     Generates a 2D scatter plot from coordinates (N,2) and optionally saves it.
-    Input:
+
+    Inputs:
     - coords (N,2)
     - title (optional)
     - xlabel, ylabel (optional)
@@ -45,6 +51,7 @@ def plot_2d(
     - alpha (optional, 0-1)
     - run_dir (optional)
     - filename (optional)
+
     Output:
     - Matplotlib Figure (.png)
     """
@@ -82,7 +89,8 @@ def plot_3d(
 ) -> plt.Figure:
     """
     Generates a 3D scatter plot from coordinates (N,3) and optionally saves it.
-    Input:
+
+    Inputs:
     - coords (N,3)
     - title (optional)
     - xlabel, ylabel, zlabel (optional)
@@ -90,6 +98,7 @@ def plot_3d(
     - alpha (optional, 0-1)
     - run_dir (optional)
     - filename (optional)
+
     Output:
     - Matplotlib Figure (.png)
     """

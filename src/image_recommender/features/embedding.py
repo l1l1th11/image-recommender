@@ -30,6 +30,9 @@ _embedding_dims = {}
 
 
 def _get_default_device() -> str:
+    """
+    Returns the default device to use for inference (cpu)
+    """
     return "cpu"
 
 
@@ -45,7 +48,7 @@ _weights = {
 def _load_model(model_name: str, pretrained: bool = True, device: str = "cpu") -> torch.nn.Module:
     """
     Loads a ResNet model.
-    Caches models for deterministic output.
+    Caches loaded models to avoid re-initialization and improve performance.
     """
     if pretrained and model_name not in _weights:
         raise ValueError(
@@ -93,6 +96,10 @@ def _load_model(model_name: str, pretrained: bool = True, device: str = "cpu") -
 
 
 def get_embedding_dim(model_name: str = "resnet18") -> int:  # set resnet18 as default
+    """
+    Returns the dimension of the embedding.
+    Uses a dummy forward pass to infer the dimension if not cached.
+    """
     if model_name not in _embedding_dims:  # If not cached...
         _load_model(model_name, pretrained=False)  # ... load model to get dimension
     return _embedding_dims[model_name]
@@ -107,11 +114,14 @@ def extract_embedding(  # main function to extract embedding from RGB image
 ) -> np.ndarray:
     """
     Extracts an embedding from a single RGB image.
-    Args:
+
+    Inputs:
         - img_rgb: Input image as a NumPy array of shape (H, W, 3), expects uint8 RGB.
         - model_name: Name of the ResNet model to use.
         - pretrained: Whether to use pretrained weights.
         - device: Device to run inference on.
+
+    Output: 1D NumPy array representing the embedding of the input image.
     """
     if img_rgb.ndim != 3 or img_rgb.shape[2] != 3:  # image must be RGB (3 channels)
         raise ValueError("Input must be RGB image with shape (H, W, 3)")
@@ -136,12 +146,15 @@ def extract_embeddings_batch(
 ) -> np.ndarray:
     """
     Extracts embeddings for multiple RGB images in batches.
-    Args:
+
+    Inputs:
         - imgs_rgb: List of RGB images as NumPy arrays of shape (H, W, 3), expects uint8 RGB.
         - model_name: Name of the ResNet model to use.
         - pretrained: Whether to use pretrained weights.
         - device: Device to run inference on.
         - batch_size: Number of images to process in each batch.
+
+    Output: 2D NumPy array of shape (N, D) where N is the number of input images and D is the embedding dimension.
     """
     if not imgs_rgb:  # If there are no images...
         return np.empty(

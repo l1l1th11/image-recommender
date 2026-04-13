@@ -19,6 +19,12 @@ def load_coordinates(coords_path: Path, ids_path: Path) -> tuple[np.ndarray, np.
     """
     Loads embedding coordinates and corresponding image IDs.
 
+    Inputs:
+    - coords_path (path to coordinate file)
+    - ids_path (path to ID file)
+
+    Output: tuple of coordinates and IDs
+
     IMPORTANT ALIGNMENT INVARIANT:
     coords[i], ids[i], and embeddings[i] must refer to the same image.
     """
@@ -64,6 +70,10 @@ def load_coordinates(coords_path: Path, ids_path: Path) -> tuple[np.ndarray, np.
 def load_embeddings_from_shards(embeddings_root: Path) -> tuple[np.ndarray, np.ndarray]:
     """
     Loads embeddings from shard directories.
+
+    Input: Path to embeddings root directory
+
+    Output: tuple of embeddings and IDs
     """
     all_embeddings = []
     all_ids = []
@@ -93,6 +103,12 @@ def load_embeddings_from_shards(embeddings_root: Path) -> tuple[np.ndarray, np.n
 def build_neighbor_model(embeddings: np.ndarray, k: int) -> NearestNeighbors:
     """
     Builds a k-nearest neighbor index using the embeddings.
+
+    Inputs:
+    - embeddings (numpy array of embeddings)
+    - k (number of neighbors to find)
+
+    Output: NearestNeighbors object
     """
     n_neighbors = min(k + 1, len(embeddings))
 
@@ -105,6 +121,12 @@ def build_neighbor_model(embeddings: np.ndarray, k: int) -> NearestNeighbors:
 def show_neighbor_grid(neighbor_ids: list[int], db_path: Path) -> list:
     """
     Displays a grid of thumbnail images for given neighbor IDs.
+
+    Inputs:
+    - neighbor_ids (list of neighbor IDs)
+    - db_path (path to database directory)
+
+    Output: list of thumbnail images
     """
     images = []
     for img_id in neighbor_ids:
@@ -153,6 +175,12 @@ def show_neighbor_grid(neighbor_ids: list[int], db_path: Path) -> list:
 def build_scatter(coords: np.ndarray, ids: np.ndarray) -> go.Figure:
     """
     Creates a Plotly ScatterGL figure for 2D embeddings.
+
+    Inputs:
+    - coords (numpy array of coordinates)
+    - ids (numpy array of IDs)
+
+    Output: Plotly ScatterGL figure
     """
     fig = go.Figure(
         go.Scattergl(
@@ -181,12 +209,14 @@ def run_embedding_explorer(
 ) -> go.Figure | None:
     """
     Launches interactive embedding explorer.
-    Input:
+
+    Inputs:
     - coords_path (path to coordinate file)
     - ids_path (path to ID file)
     - embeddings_path (path to embeddings shard directory)
     - k (number of neighbors)
     - show (whether to show the app)
+
     Output: figure
     """
     coords, ids = load_coordinates(coords_path, ids_path)
@@ -317,6 +347,12 @@ def run_embedding_explorer(
 def resolve_image_path(image_id: int, db_path: Path) -> Path | None:
     """
     Resolves image path from database.
+
+    Inputs:
+    - image_id (image ID)
+    - db_path (path to database directory)
+
+    Output: image path
     """
     try:
         path = get_path_by_id(image_id, db_path)
@@ -333,6 +369,12 @@ def resolve_image_path(image_id: int, db_path: Path) -> Path | None:
 def create_thumbnail_cached(image_path: str, size: int) -> str:
     """
     Creates thumbnail with caching (in-memory).
+
+    Inputs:
+    - image_path (path to image file)
+    - size (thumbnail size)
+
+    Output: base64 encoded thumbnail
     """
     key = (image_path, size)
 
@@ -348,6 +390,12 @@ def create_thumbnail_cached(image_path: str, size: int) -> str:
 def _create_thumbnail(image_path: Path | None, size: int = 96) -> str:
     """
     Creates base64 encoded thumbnail for hover preview.
+
+    Inputs:
+    - image_path (path to image file)
+    - size (thumbnail size)
+
+    Output: base64 encoded thumbnail
     """
     if image_path is None:
         return ""

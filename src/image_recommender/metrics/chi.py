@@ -5,7 +5,11 @@ def chi_distance_to_many(query: np.ndarray, candidates: np.ndarray) -> np.ndarra
     """
     Computes chi-squared distances from one query histogram to many candidate histograms.
 
-    Input: Histogram-like vectors.
+    Inputs:
+    - query (D,)
+    - candidates (N, D)
+
+    Output: Array of chi-squared distances from the query to each candidate.
 
     - Self-distance: If query = candidate, then χ² = 0.
     - Symmetry: (query - candidate)^2 / (query + candidate) = (candidate - query)^2 / (candidate + query)
@@ -41,7 +45,11 @@ def chi_distance(query: np.ndarray, candidate: np.ndarray) -> float:
     """
     Computes the chi-squared distance between one query histogram and a single candidate histogram.
 
-    Input: Histogram-like vectors.
+    Inputs:
+    - query (D,)
+    - candidate (D,)
+
+    Output: A single float distance value representing the chi-squared distance between the query and candidate histograms.
 
     - Self-distance: If query = candidate, then χ² = 0.
     - Symmetry: χ²(query, candidate) = χ²(candidate, query)

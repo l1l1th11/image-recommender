@@ -7,9 +7,15 @@ from typing import BinaryIO
 
 def write_tmp_then_rename(final: Path | str, write_fn: Callable[[BinaryIO], None]) -> None:
     """
-    Write to named temporary file in same directory as final using a callable,
+    Writes to named temporary file in same directory as final using a callable,
     flush & fsync, then atomically replace final with tmp file contents.
     Best-effort: fsync parent directory.
+
+    Inputs:
+    - final: path to final file
+    - write_fn: callable to write to file
+
+    Output: None (writes to disk)
     """
 
     # convert to path object

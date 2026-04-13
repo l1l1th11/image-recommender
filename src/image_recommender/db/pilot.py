@@ -60,6 +60,9 @@ def create_pilot_set(db_path: Path, n: int, seed: int, out_path: Path) -> int:
 
 
 def load_ids_pilot(pilot_path: str | Path = PILOT_IDS_CSV) -> list[int]:
+    """
+    Loads pilot image_ids from a CSV file. Expects one ID per line.
+    """
     # read ids from csv
     with pilot_path.open("r", encoding="utf-8") as f:
 
