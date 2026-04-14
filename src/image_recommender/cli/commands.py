@@ -305,7 +305,7 @@ def handle_query(args):
             # call display function
             display_results(
                 top_k_resolved=top_k_resolved,
-                query_path=query_paths[0] if len(query_paths) == 1 else None,
+                query_paths=query_paths,
             )
 
         else:
