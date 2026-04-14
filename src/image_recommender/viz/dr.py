@@ -12,10 +12,12 @@ def compute_umap(
 ) -> np.ndarray:
     """
     Computes a deterministic UMAP projection of embedding vectors.
+
     Input:
     - embeddings (embedding matrix of shape (N, D))
     - n_components (2 or 3)
     - umap_kwargs
+
     Output: coordinates of shape (N, n_components)
     """
 

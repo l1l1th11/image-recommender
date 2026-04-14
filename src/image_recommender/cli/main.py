@@ -22,6 +22,10 @@ from .commands import (
 
 
 def build_parser() -> ArgumentParser:
+    """
+    Builds the CLI parser with subcommands and their respective arguments.
+    Each subcommand is associated with a handler function that implements its logic.
+    """
     # build root parser (top level cli)
     parser = ArgumentParser(prog="image-recommender", description="Image Recommender CLI")
     # build subparser (register commands)

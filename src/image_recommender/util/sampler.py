@@ -7,7 +7,14 @@ def list_samples(
     limit: int | None = None,  # num of items returned
 ) -> list[Path]:  # returns list of path objects
     """
-    List top level files in root with stable sort and optional filtering
+    Lists top level files in root with stable sort and optional filtering.
+
+    Input:
+    - root: Directory to list files from
+    - extset: Optional set of allowed extensions
+    - limit: Optional max number of items to return
+
+    Output: List of path objects
     """
     # collect files
     items = []

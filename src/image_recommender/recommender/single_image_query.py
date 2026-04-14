@@ -30,10 +30,20 @@ def _compute_full_scores(
     """
     Internal helper to compute full aligned score array for a single query.
 
+    Inputs:
+    - query_path: Path to query image
+    - run_dir: Directory containing feature folders
+    - feature_types: Optional subset of feature types to process
+    - weights: Optional weights (must match keys, sum to appr. 1)
+    - backend: "linear" (default) or "annoy"
+    - k_candidates: Size of candidate subset retrieved by Annoy backend (optional, defaults applied if None)
+    - subset_ids: Optional list of candidate ids to consider (bypasses annoy search if provided)
+    - annoy_backend: Optional pre-initialized annoy backend (only used if backend="annoy")
+
     Output:
-        score_arr: (N,) aligned scores
-        canonical_ids: list of candidate ids aligned to canonical candidate id order
-        used_features: set of features actually used
+    - score_arr: (N,) aligned scores
+    - canonical_ids: list of candidate ids aligned to canonical candidate id order
+    - used_features: set of features actually used
     """
     # load image
     img_rgb = load_rgb(path=query_path)

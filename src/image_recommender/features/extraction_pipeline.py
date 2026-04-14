@@ -44,6 +44,23 @@ def run_extraction(
     shard_size: int | None,
     policy: str,
 ) -> None:
+    """
+    Runs the feature extraction pipeline.
+
+    Inputs:
+    - feature_type: type of feature to extract (embedding, hsv, phash)
+    - input_mode: mode of input data (samples, pilot, db)
+    - run_dir: base directory for the run
+    - shard_start: id of the first shard to process (inclusive)
+    - shard_stop: id of the last shard to process (exclusive)
+    - pilot_path: path to the pilot file
+    - db_path: path to the database file
+    - shard_size: number of images per shard (if None, uses default based on input mode)
+    - policy: error handling policy (skip_and_log, raise)
+
+    Output:
+    - None (writes feature shards, ids and metadata to disk)
+    """
     # validate inputs
     if feature_type not in SUPPORTED_FEATURES:
         raise ValueError(f"Unsupported feature type. Supported: {', '.join(SUPPORTED_FEATURES)}")

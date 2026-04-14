@@ -31,6 +31,9 @@ from image_recommender.viz.map_embeddings import run_map_embeddings
 
 
 def handle_list_samples(args) -> int:
+    """
+    Handles the "list-samples" CLI command.
+    """
     # normalize extensions provided by cli, or provide default set
     extset = {e.lower().lstrip(".") for e in args.ext} if args.ext else IMAGE_EXTS
 
