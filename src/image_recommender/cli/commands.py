@@ -29,6 +29,9 @@ from image_recommender.util.sampler import list_samples
 from image_recommender.viz.explorer import run_embedding_explorer
 from image_recommender.viz.map_embeddings import run_map_embeddings
 
+# global cache for mappings
+_GLOBAL_MAPPING_CACHE = None
+
 
 def handle_list_samples(args) -> int:
     # normalize extensions provided by cli, or provide default set
@@ -234,6 +237,7 @@ def handle_query(args):
         k_candidates = getattr(args, "k_candidates", None)
 
         annoy_backend = None
+        id_to_vec_maps = None  # added
 
         if backend == "annoy":
             # apply default
@@ -245,6 +249,18 @@ def handle_query(args):
                 k=effective_k,
             )
 
+            # load mapping once per process
+            global _GLOBAL_MAPPING_CACHE
+            if _GLOBAL_MAPPING_CACHE is None:
+                print("Loading id to vector mappings (once)...")
+                from image_recommender.recommender.load_persistent_mapping import (
+                    load_persistent_mapping,
+                )
+
+                _GLOBAL_MAPPING_CACHE = load_persistent_mapping(Path(args.run_dir))
+
+            id_to_vec_maps = _GLOBAL_MAPPING_CACHE
+
         # for one query
         if len(query_paths) == 1:
             top_k, used_features = single_image_query(
@@ -255,6 +271,7 @@ def handle_query(args):
                 backend=backend,
                 k_candidates=k_candidates,
                 annoy_backend=annoy_backend,
+                id_to_vec_maps=id_to_vec_maps,
             )
 
         # for multiple queries
@@ -267,6 +284,7 @@ def handle_query(args):
                 backend=backend,
                 k_candidates=k_candidates,
                 annoy_backend=annoy_backend,
+                id_to_vec_maps=id_to_vec_maps,
             )
 
         # ensure requested features were used for query
@@ -293,6 +311,89 @@ def handle_query(args):
     # output error message
     except ValueError as e:
         print(f"Query failed: {e}")
+        return 1
+
+
+def handle_query_loop(args):
+    """
+    Handles the "query-loop" CLI command.
+
+    Runs a persistent query loop to allow multiple queries within the same process, enabling reuse of loaded feature mappings for faster repeated queries.
+    """
+    try:
+        backend = getattr(args, "backend", "linear")
+        k_candidates = getattr(args, "k_candidates", None)
+
+        annoy_backend = None
+        id_to_vec_maps = None
+
+        if backend == "annoy":
+            # apply default
+            effective_k = k_candidates if k_candidates is not None else DEFAULT_K_CANDIDATES
+
+            annoy_backend = AnnoySearchBackend(
+                run_dir=Path(args.run_dir),
+                feature_type="embedding",
+                k=effective_k,
+            )
+
+            # reuse global cache from handle_query
+            global _GLOBAL_MAPPING_CACHE
+            if _GLOBAL_MAPPING_CACHE is None:
+                print("Loading id to vector mappings (once)...")
+                from image_recommender.recommender.load_persistent_mapping import (
+                    load_persistent_mapping,
+                )
+
+                _GLOBAL_MAPPING_CACHE = load_persistent_mapping(Path(args.run_dir))
+
+            id_to_vec_maps = _GLOBAL_MAPPING_CACHE
+
+        print("\nEntering query loop. Type 'exit' to quit.\n")
+
+        while True:
+            user_input = input("Enter image path: ").strip()
+
+            if user_input.lower() in {"exit", "quit"}:
+                print("Exiting query loop.")
+                return 0
+
+            query_path = Path(user_input)
+
+            if not query_path.exists():
+                print(f"Invalid path: {query_path}")
+                continue
+
+            # run single query
+            top_k, used_features = single_image_query(
+                query_path=query_path,
+                run_dir=Path(args.run_dir),
+                k=args.k,
+                feature_types=args.feature_types,
+                backend=backend,
+                k_candidates=k_candidates,
+                annoy_backend=annoy_backend,
+                id_to_vec_maps=id_to_vec_maps,
+            )
+
+            # ensure requested features were used for query
+            if args.feature_types is not None:
+                if used_features != set(args.feature_types):
+                    raise ValueError(
+                        f"Requested features {args.feature_types} but used {used_features}"
+                    )
+
+            # resolve (id, score) -> (filepath, score)
+            top_k_resolved = resolve_id_to_path(top_k=top_k, run_dir=args.run_dir)
+
+            if args.display:
+                display_results(top_k_resolved=top_k_resolved)
+            else:
+                for filepath, score in top_k_resolved:
+                    print(f"{filepath} {score}")
+
+    except ValueError as e:
+        print(f"Query loop failed: {e}")
         return 1
 
 

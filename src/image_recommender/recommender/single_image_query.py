@@ -116,6 +116,7 @@ def _compute_full_scores(
 
         t0 = time.perf_counter()
 
+        # explicitly pass mapping to subset function
         dist_dict, canonical_ids = distances_all_features_subset(
             run_dir=run_dir,
             queries_by_feature=queries_by_feature,
@@ -133,7 +134,9 @@ def _compute_full_scores(
             raise ValueError("No features available after distance computation")
 
         # step 3: scoring
+        t0 = time.perf_counter()
         score_arr = get_score_arr(dist_dict=dist_dict, weights=weights)
+        timings["scoring"] = time.perf_counter() - t0
 
         # total time
         timings["total"] = time.perf_counter() - t_total_start
@@ -291,7 +294,7 @@ def single_image_query(
         Returns top-k (id, score) pairs
     """
     # get aligned score array, canonical id list and used features set
-    score_arr, canonical_ids, used_features = _compute_full_scores(
+    score_arr, canonical_ids, used_features, _ = _compute_full_scores(
         query_path=query_path,
         run_dir=run_dir,
         feature_types=feature_types,

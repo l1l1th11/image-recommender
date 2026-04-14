@@ -49,7 +49,7 @@ def multi_image_query(
     first_query = query_paths[0]
 
     # generate subset from first query
-    score_arr, canonical_ids, used_features = _compute_full_scores(
+    score_arr, canonical_ids, used_features, _ = _compute_full_scores(
         query_path=first_query,
         run_dir=run_dir,
         feature_types=feature_types,
@@ -68,7 +68,7 @@ def multi_image_query(
     for query_path in query_paths[1:]:
 
         # compute scores based on first queries subset
-        score_arr, canonical_ids, used_features = _compute_full_scores(
+        score_arr, canonical_ids, used_features, _ = _compute_full_scores(
             query_path=query_path,
             run_dir=run_dir,
             feature_types=feature_types,

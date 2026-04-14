@@ -256,7 +256,7 @@ def distances_all_features_subset(
     # containers for results and intermediate filtering
     dist_dict: dict[str, np.ndarray] = {}
     valid_ids_per_feature: dict[str, set[int]] = {}
-    id_to_vec_per_feature: dict[str, dict[int, np.ndarray]] = {}
+    id_to_vec_per_feature: dict[str, dict] = {}  # mapping holds structured dict
 
     # step 1: filter subset per feature
     for feature in sorted(features_to_process):
@@ -265,17 +265,18 @@ def distances_all_features_subset(
         if feature not in id_to_vec_maps:
             raise ValueError(f"Missing ID-to-vector mapping for feature '{feature}'")
 
-        id_to_vec = id_to_vec_maps[feature]
+        mapping = id_to_vec_maps[feature]
+        index_map = mapping["index"]
 
         # retain only ids present in current feature mapping
-        valid_ids = [image_id for image_id in subset_ids if image_id in id_to_vec]
+        valid_ids = [image_id for image_id in subset_ids if image_id in index_map]
 
         if not valid_ids:
             raise ValueError(f"No valid ids left for feature '{feature}'")
 
         # store valid ids and mapping for later use
         valid_ids_per_feature[feature] = set(valid_ids)
-        id_to_vec_per_feature[feature] = id_to_vec
+        id_to_vec_per_feature[feature] = mapping  # store full mapping
 
     # step 2: compute shared subset across features
 
@@ -291,10 +292,12 @@ def distances_all_features_subset(
     # step 3: compute distances on shared subset
     for feature in sorted(features_to_process):
 
-        id_to_vec = id_to_vec_per_feature[feature]
+        mapping = id_to_vec_per_feature[feature]
+        vecs = mapping["vecs"]
+        index_map = mapping["index"]
 
         # build candidate matrix aligned to shared_subset_ids order
-        subset_matrix = np.vstack([id_to_vec[image_id] for image_id in shared_subset_ids])
+        subset_matrix = np.vstack([vecs[index_map[image_id]] for image_id in shared_subset_ids])
 
         # compute distances for current feature
         query = queries_by_feature[feature]

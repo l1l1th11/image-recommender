@@ -18,6 +18,7 @@ from .commands import (
     handle_phash_on_samples,
     handle_profile_query,
     handle_query,
+    handle_query_loop,
 )
 
 
@@ -264,6 +265,53 @@ def build_parser() -> ArgumentParser:
         help=f"Feature types to use (default: auto). Choices: {', '.join(SUPPORTED_FEATURES)}",
     )
     cmd_query.add_argument(
+        "--display",
+        action="store_true",
+        default=False,
+        help="Prints (path, score) pairs and opens corresponding images one by one.",
+    )
+
+    # run query-loop command
+    cmd_query_loop = subparsers.add_parser(
+        "query-loop",
+        help="Run persistent query loop for fast repeated queries (annoy & cached mappings)",
+        description="Starts an interactive loop to execute multiple queries within one process for improved performance",
+    )
+    cmd_query_loop.set_defaults(run=handle_query_loop)
+    cmd_query_loop.add_argument(
+        "--backend",
+        type=str,
+        choices=["linear", "annoy"],
+        default="linear",
+        help="Search backend to use (default: linear)",
+    )
+    cmd_query_loop.add_argument(
+        "--k-candidates",
+        type=int,
+        default=None,
+        help="Number of candidates for Annoy backend (required if backend=annoy)",
+    )
+    cmd_query_loop.add_argument(
+        "--run-dir",
+        type=str,
+        required=True,
+        help="Directory containing feature folders",
+    )
+    cmd_query_loop.add_argument(
+        "--k",
+        type=int,
+        default=5,
+        help="Number of nearest neighbors to be returned",
+    )
+    cmd_query_loop.add_argument(
+        "--feature-types",
+        type=str,
+        nargs="+",
+        default=None,
+        choices=SUPPORTED_FEATURES,
+        help=f"Feature types to use (default: auto). Choices: {', '.join(SUPPORTED_FEATURES)}",
+    )
+    cmd_query_loop.add_argument(
         "--display",
         action="store_true",
         default=False,
