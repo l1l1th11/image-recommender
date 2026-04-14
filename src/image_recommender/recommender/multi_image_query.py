@@ -18,6 +18,7 @@ def multi_image_query(
     backend: str = "linear",
     k_candidates: int | None = None,
     annoy_backend: AnnoySearchBackend | None = None,
+    id_to_vec_maps=None,
 ) -> tuple[list[tuple[int, float]], set[str]]:
     """
     Runs a multi image query by aggregating aligned per query score arrays via mean.
@@ -29,6 +30,7 @@ def multi_image_query(
         feature_types: Optional subset of feature types to process
         weights: Optional weights (must match keys, sum to appr. 1)
         k_candidates: Size of candidate subset retrieved by annoy (required for annoy backend)
+        id_to_vec_maps: Precomputed mappings {feature_type: {image_id: feature_vector}} required for annoy backend
 
     Output:
         top_k: List of (image_id, score) pairs sorted ascending (best match first)
@@ -55,6 +57,7 @@ def multi_image_query(
         backend=backend,
         k_candidates=k_candidates,
         annoy_backend=annoy_backend,
+        id_to_vec_maps=id_to_vec_maps,
     )
 
     score_arrays = [score_arr]
@@ -74,6 +77,7 @@ def multi_image_query(
             k_candidates=k_candidates,
             annoy_backend=annoy_backend,
             subset_ids=reference_ids if backend == "annoy" else None,
+            id_to_vec_maps=id_to_vec_maps,
         )
 
         # canonical id check
