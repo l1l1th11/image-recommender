@@ -1,0 +1,140 @@
+Profiling and Targeted Optimization
+
+
+
+1. Baseline
+
+Pipeline timing was added to measure:
+
+* image loading
+* feature extraction
+* candidate generation (annoy)
+* distance computation
+* scoring
+* total runtime
+
+
+Results
+
+Linear backend
+Total about 12.7 seconds
+Distance computation about 72 percent
+Image loading about 20 percent
+
+Annoy backend
+Total about 6.2 seconds
+Distance computation about 48 percent
+Candidate generation about 46 percent
+
+Interpretation
+Distance computation and data access were the dominant bottlenecks, mainly due to shard scanning.
+
+
+---
+
+2. Bottlenecks
+
+Identified using timing and profiling:
+
+* repeated loading of feature vectors from shards
+* inefficient access to candidate vectors in annoy
+
+
+---
+
+
+3. Optimizations
+
+id to vector mapping
+
+* introduced mapping from image id to feature vector
+* enables direct access instead of shard scanning
+
+Impact
+Annoy query time reduced from about 4 to 5 seconds to about 2.3 seconds
+
+
+---
+
+
+Pipeline integration
+
+* mapping used in subset distance computation
+* removes repeated io during queries
+
+
+---
+
+
+Persistent query loop
+
+* new query loop command
+* loads mapping and annoy backend once
+* reused across queries
+
+
+Performance
+
+Cold start about 15 to 20 seconds
+Steady state
+Single query about 1 to 1.5 seconds
+Multi query about 1.7 to 2 seconds
+
+
+---
+
+
+Multi image query optimization
+
+* first query defines candidate subset
+* remaining queries reuse subset
+* avoids repeated full pipeline execution
+
+Impact
+Multi query reduced from about 10 to 12 seconds to about 2 seconds
+
+
+---
+
+
+Display adjustments
+
+* fixed display for non interactive environments
+* support multiple query images
+
+
+---
+
+
+4. Validation
+
+Results unchanged
+
+* same ids
+* same ranking
+
+
+Performance (annoy, steady state)
+
+Single query
+Before about 4 to 5 seconds
+After about 1 to 1.5 seconds
+
+Multi query
+Before about 10 to 12 seconds
+After about 1.7 to 2 seconds
+
+
+---
+
+
+5. Conclusion
+
+Main bottleneck was data access and shard scanning.
+
+Solved by introducing id to vector mappings and reusing them across queries.
+
+Additional improvements from Multi query optimization and persistent execution.
+
+Final system meets requirement of returning results within a few seconds on the full dataset.
+

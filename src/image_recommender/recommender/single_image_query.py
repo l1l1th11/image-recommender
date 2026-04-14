@@ -1,3 +1,4 @@
+import time
 from pathlib import Path
 
 import numpy as np
@@ -26,9 +27,28 @@ def _compute_full_scores(
     k_candidates: int | None = None,
     subset_ids: list[int] | None = None,
     annoy_backend: AnnoySearchBackend | None = None,
-) -> tuple[np.ndarray, list[int], set[str]]:
+    id_to_vec_maps=None,
+) -> tuple[np.ndarray, list[int], set[str], dict[str, float]]:
     """
-    Internal helper to compute full aligned score array for a single query.
+    Compute per candidate scores for a single query including detailed timing.
+
+    Executes full query pipeline:
+    1. Load image
+    2. Extract query features
+    3. Generate candidate subset (annoy) or use full dataset (linear)
+    4. Compute distances
+    5. Aggregate scores
+
+    Input:
+    query_path: Path to the query image
+    run_dir: Root directory containing feature shards
+    feature_types: Optional subset of features to use
+    weights: Optional feature weights for score aggregation
+    backend: "linear" (full scan) or "annoy" (subset based search)
+    k_candidates: Number of candidates retrieved by annoy (if applicable)
+    subset_ids: Optional externally provided candidate subset
+    annoy_backend: Optional pre initialized annoy backend
+    id_to_vec_maps: Precomputed mappings {feature_type: {image_id: feature_vector}} required for annoy backend
 
     Inputs:
     - query_path: Path to query image
@@ -41,29 +61,47 @@ def _compute_full_scores(
     - annoy_backend: Optional pre-initialized annoy backend (only used if backend="annoy")
 
     Output:
-    - score_arr: (N,) aligned scores
-    - canonical_ids: list of candidate ids aligned to canonical candidate id order
-    - used_features: set of features actually used
+        score_arr: Array of shape (N,) with scores aligned to canonical_ids
+        canonical_ids: Candidate IDs aligned to score_arr
+        used_features: Set of features actually used
+        timings: Dictionary containing per stage execution times
+
+    Raises:
+        ValueError: If required features are missing or no valid candidates remain
+
+    Notes:
+        - Annoy mode uses subset based distance computation via id to vector mapping
+        - Linear mode computes distances against full dataset
     """
+    # timing container
+    timings = {}
+    t_total_start = time.perf_counter()
+
     # load image
+    t0 = time.perf_counter()
     img_rgb = load_rgb(path=query_path)
+    timings["load_image"] = time.perf_counter() - t0
 
     # extract query features
+    t0 = time.perf_counter()
     queries_by_feature = extract_query_features(img_rgb=img_rgb, feature_types=feature_types)
+    timings["feature_extraction"] = time.perf_counter() - t0
 
-    # annoy search
+    # annoy based search
     if backend == "annoy":
+
+        # ensure embedding is available
         if "embedding" not in queries_by_feature:
             raise ValueError("Annoy backend requires embedding feature")
 
-        # apply default
+        # apply default candidate size
         if k_candidates is None:
             k_candidates = DEFAULT_K_CANDIDATES
 
         # get embedding query
         query_embedding = queries_by_feature["embedding"]
 
-        # run annoy to get candidate subset
+        # initialize annoy backend if not provided
         if annoy_backend is None:
             annoy_backend = AnnoySearchBackend(
                 run_dir=run_dir,
@@ -71,39 +109,60 @@ def _compute_full_scores(
                 k=k_candidates,
             )
 
-        # determine candidate subset
+        # step 1: candidate generation
+        t0 = time.perf_counter()
+
         if subset_ids is None:
             subset_ids_arr, _ = annoy_backend.search(query_embedding)
             candidate_ids = subset_ids_arr.tolist()
         else:
             candidate_ids = subset_ids
 
-        # compute distances and get aligned canonical ids
+        timings["candidate_generation"] = time.perf_counter() - t0
+
+        # step 2: distance computation on subset
+        if id_to_vec_maps is None:
+            raise ValueError("id_to_vec_maps must be provided for annoy backend")
+
+        t0 = time.perf_counter()
+
+        # explicitly pass mapping to subset function
         dist_dict, canonical_ids = distances_all_features_subset(
             run_dir=run_dir,
             queries_by_feature=queries_by_feature,
             subset_ids=candidate_ids,
             feature_types=feature_types,
+            id_to_vec_maps=id_to_vec_maps,
         )
 
+        timings["distance_computation"] = time.perf_counter() - t0
+
+        # collect features actually used
         used_features = set(dist_dict.keys())
 
         if not used_features:
             raise ValueError("No features available after distance computation")
 
-        # compute scores
+        # step 3: scoring
+        t0 = time.perf_counter()
         score_arr = get_score_arr(dist_dict=dist_dict, weights=weights)
+        timings["scoring"] = time.perf_counter() - t0
 
-        return score_arr, canonical_ids, used_features
+        # total time
+        timings["total"] = time.perf_counter() - t_total_start
+
+        return score_arr, canonical_ids, used_features, timings
 
     # linear search
 
     # compute distances
+    t0 = time.perf_counter()
     dist_dict = distances_all_features(
         run_dir=run_dir,
         queries_by_feature=queries_by_feature,
         feature_types=feature_types,
     )
+    timings["distance_computation"] = time.perf_counter() - t0
 
     used_features = set(dist_dict.keys())
 
@@ -115,9 +174,14 @@ def _compute_full_scores(
     canonical_ids = load_canonical_ids(run_dir=run_dir, feature_type=reference_feature)
 
     # compute scores
+    t0 = time.perf_counter()
     score_arr = get_score_arr(dist_dict=dist_dict, weights=weights)
+    timings["scoring"] = time.perf_counter() - t0
 
-    return score_arr, canonical_ids, used_features
+    # total time linear
+    timings["total"] = time.perf_counter() - t_total_start
+
+    return score_arr, canonical_ids, used_features, timings
 
 
 def _compute_full_scores_from_features(
@@ -129,6 +193,7 @@ def _compute_full_scores_from_features(
     k_candidates: int | None = None,
     subset_ids: list[int] | None = None,
     annoy_backend: AnnoySearchBackend | None = None,
+    id_to_vec_maps=None,
 ) -> tuple[np.ndarray, list[int], set[str]]:
     """
     Variant of _compute_full_scores that bypasses image loading & feature extraction.
@@ -158,11 +223,16 @@ def _compute_full_scores_from_features(
         else:
             candidate_ids = subset_ids
 
+        # enforce optimized path
+        if id_to_vec_maps is None:
+            raise ValueError("id_to_vec_maps must be provided for annoy backend")
+
         dist_dict, canonical_ids = distances_all_features_subset(
             run_dir=run_dir,
             queries_by_feature=queries_by_feature,
             subset_ids=candidate_ids,
             feature_types=feature_types,
+            id_to_vec_maps=id_to_vec_maps,
         )
 
         used_features = set(dist_dict.keys())
@@ -204,9 +274,11 @@ def single_image_query(
     backend: str = "linear",
     k_candidates: int | None = None,
     annoy_backend: AnnoySearchBackend | None = None,
+    id_to_vec_maps: dict[str, dict[int, np.ndarray]] | None = None,
 ) -> tuple[list[tuple[int, float]], set[str]]:
     """
     Runs a single image query and returns the top k most similar results, as well as used feature types.
+    Requires precomputed id to vector mappings for annoy backend for efficient subset distance computation.
 
     Input:
         query_path: Path to query image
@@ -232,7 +304,7 @@ def single_image_query(
         Returns top-k (id, score) pairs
     """
     # get aligned score array, canonical id list and used features set
-    score_arr, canonical_ids, used_features = _compute_full_scores(
+    score_arr, canonical_ids, used_features, _ = _compute_full_scores(
         query_path=query_path,
         run_dir=run_dir,
         feature_types=feature_types,
@@ -240,6 +312,7 @@ def single_image_query(
         backend=backend,
         k_candidates=k_candidates,
         annoy_backend=annoy_backend,
+        id_to_vec_maps=id_to_vec_maps,
     )
 
     # rank via indices (lowest -> highest)

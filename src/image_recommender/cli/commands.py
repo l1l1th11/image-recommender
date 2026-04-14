@@ -1,4 +1,5 @@
 import logging
+import time
 from pathlib import Path
 
 import numpy as np
@@ -22,12 +23,18 @@ from image_recommender.profiling.prof_runner import (
     print_profile_insights,
     run_query_profiling,
 )
+from image_recommender.recommender.load_persistent_mapping import (
+    load_persistent_mapping,
+)
 from image_recommender.recommender.multi_image_query import multi_image_query
 from image_recommender.recommender.single_image_query import single_image_query
 from image_recommender.search.annoy import AnnoySearchBackend
 from image_recommender.util.sampler import list_samples
 from image_recommender.viz.explorer import run_embedding_explorer
 from image_recommender.viz.map_embeddings import run_map_embeddings
+
+# global cache for mappings
+_GLOBAL_MAPPING_CACHE = None
 
 
 def handle_list_samples(args) -> int:
@@ -237,6 +244,7 @@ def handle_query(args):
         k_candidates = getattr(args, "k_candidates", None)
 
         annoy_backend = None
+        id_to_vec_maps = None  # added
 
         if backend == "annoy":
             # apply default
@@ -248,6 +256,18 @@ def handle_query(args):
                 k=effective_k,
             )
 
+            # load mapping once per process
+            global _GLOBAL_MAPPING_CACHE
+            if _GLOBAL_MAPPING_CACHE is None:
+                print("Loading id to vector mappings (once)...")
+                from image_recommender.recommender.load_persistent_mapping import (
+                    load_persistent_mapping,
+                )
+
+                _GLOBAL_MAPPING_CACHE = load_persistent_mapping(Path(args.run_dir))
+
+            id_to_vec_maps = _GLOBAL_MAPPING_CACHE
+
         # for one query
         if len(query_paths) == 1:
             top_k, used_features = single_image_query(
@@ -258,6 +278,7 @@ def handle_query(args):
                 backend=backend,
                 k_candidates=k_candidates,
                 annoy_backend=annoy_backend,
+                id_to_vec_maps=id_to_vec_maps,
             )
 
         # for multiple queries
@@ -270,6 +291,7 @@ def handle_query(args):
                 backend=backend,
                 k_candidates=k_candidates,
                 annoy_backend=annoy_backend,
+                id_to_vec_maps=id_to_vec_maps,
             )
 
         # ensure requested features were used for query
@@ -283,8 +305,15 @@ def handle_query(args):
         top_k_resolved = resolve_id_to_path(top_k=top_k, run_dir=args.run_dir)
 
         if args.display:
-            # call display function
-            display_results(top_k_resolved=top_k_resolved)
+            # call display function (backward compatible)
+            try:
+                display_results(
+                    top_k_resolved=top_k_resolved,
+                    query_paths=query_paths,
+                )
+            except TypeError:
+                # fallback for older signature (tests / mocks)
+                display_results(top_k_resolved)
 
         else:
             # print results
@@ -296,6 +325,173 @@ def handle_query(args):
     # output error message
     except ValueError as e:
         print(f"Query failed: {e}")
+        return 1
+
+
+def handle_query_loop(args):
+    """
+    Runs an interactive query loop for the recommender system.
+
+    This command allows repeated execution of single and multi-image queries
+    within the same process. For the annoy backend, an explicit initialization
+    step loads the persistent index and id to vector mappings once, enabling
+    faster subsequent queries.
+
+    Interaction flow:
+        - User enters "init" to initialize (required for annoy backend)
+        - User enters one or multiple image paths (semicolon-separated)
+        - System executes query and prints timing information
+        - Optional result visualization is triggered if enabled
+        - Loop continues until user enters "exit"
+
+    Input:
+        args: Parsed CLI arguments containing:
+            - run_dir: Directory containing feature shards
+            - backend: "linear" or "annoy"
+            - k: Number of results to return
+            - feature_types: Optional subset of features
+            - k_candidates: Candidate subset size for annoy
+            - display: Whether to visualize results
+
+    Output:
+        Returns 0 on normal exit, 1 on fatal error
+
+    Notes:
+        - Annoy backend requires explicit initialization before querying
+        - Initialization is performed once and reused across queries
+        - Multi-image queries reuse candidate subsets for performance
+        - Timing output separates query, resolve, and display stages
+    """
+    try:
+        run_dir = Path(args.run_dir)
+        backend = getattr(args, "backend", "linear")
+        k_candidates = getattr(args, "k_candidates", None)
+
+        # initialization state for annoy backend
+        id_to_vec_maps = None
+        annoy_backend = None
+        initialized = False
+
+        print("Interactive query loop started.")
+        print("Type 'init' to initialize system.")
+        print("Type 'exit' to quit.\n")
+
+        while True:
+            user_input = input("Enter image path (or 'init' / 'exit'): ").strip()
+
+            # exit command
+            if user_input.lower() == "exit":
+                print("Exiting.")
+                return 0
+
+            # initialization command
+            if user_input.lower() == "init":
+                if backend != "annoy":
+                    print("Initialization only required for annoy backend.\n")
+                    initialized = True
+                    continue
+
+                print("Initializing system...")
+
+                t0 = time.perf_counter()
+
+                # load persistent id -> vector mappings
+                id_to_vec_maps = load_persistent_mapping(run_dir)
+
+                # determine effective candidate size
+                effective_k = k_candidates if k_candidates is not None else DEFAULT_K_CANDIDATES
+
+                # load annoy index
+                annoy_backend = AnnoySearchBackend(
+                    run_dir=run_dir,
+                    feature_type="embedding",
+                    k=effective_k,
+                )
+
+                initialized = True
+
+                print(
+                    f"Initialization complete in {time.perf_counter() - t0:.3f}s. "
+                    "You can now run queries.\n"
+                )
+                continue
+
+            # ensure initialization for annoy backend
+            if backend == "annoy" and not initialized:
+                print("System not initialized. Type 'init' first.\n")
+                continue
+
+            # parse user input (support multiple paths via ';')
+            paths = [p.strip() for p in user_input.split(";") if p.strip()]
+
+            if not paths:
+                print("No valid input provided.\n")
+                continue
+
+            query_paths = [Path(p) for p in paths]
+
+            try:
+                t_query_start = time.perf_counter()
+
+                # dispatch to single or multi image query
+                if len(query_paths) == 1:
+                    top_k, used_features = single_image_query(
+                        query_path=query_paths[0],
+                        run_dir=run_dir,
+                        k=args.k,
+                        feature_types=args.feature_types,
+                        backend=backend,
+                        k_candidates=k_candidates,
+                        annoy_backend=annoy_backend,
+                        id_to_vec_maps=id_to_vec_maps,
+                    )
+                else:
+                    top_k, used_features = multi_image_query(
+                        query_paths=query_paths,
+                        run_dir=run_dir,
+                        k=args.k,
+                        feature_types=args.feature_types,
+                        backend=backend,
+                        k_candidates=k_candidates,
+                        annoy_backend=annoy_backend,
+                        id_to_vec_maps=id_to_vec_maps,
+                    )
+
+                query_time = time.perf_counter() - t_query_start
+
+                # resolve image ids to file paths
+                t_resolve_start = time.perf_counter()
+                top_k_resolved = resolve_id_to_path(top_k=top_k, run_dir=run_dir)
+                resolve_time = time.perf_counter() - t_resolve_start
+
+                print(
+                    f"[timing] query={query_time:.3f}s | resolve={resolve_time:.3f}s | "
+                    f"features={sorted(used_features)}"
+                )
+
+                # optional visualization
+                if args.display:
+                    t_display_start = time.perf_counter()
+
+                    display_results(
+                        top_k_resolved=top_k_resolved,
+                        query_paths=query_paths,
+                    )
+
+                    display_time = time.perf_counter() - t_display_start
+                    print(f"[timing] display={display_time:.3f}s")
+                else:
+                    for filepath, score in top_k_resolved:
+                        print(f"{filepath} {score}")
+
+                total_time = time.perf_counter() - t_query_start
+                print(f"[timing] total={total_time:.3f}s\n")
+
+            except ValueError as e:
+                print(f"Query failed: {e}\n")
+
+    except Exception as e:
+        print(f"Fatal error: {e}")
         return 1
 
 
