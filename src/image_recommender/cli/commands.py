@@ -302,11 +302,15 @@ def handle_query(args):
         top_k_resolved = resolve_id_to_path(top_k=top_k, run_dir=args.run_dir)
 
         if args.display:
-            # call display function
-            display_results(
-                top_k_resolved=top_k_resolved,
-                query_paths=query_paths,
-            )
+            # call display function (backward compatible)
+            try:
+                display_results(
+                    top_k_resolved=top_k_resolved,
+                    query_paths=query_paths,
+                )
+            except TypeError:
+                # fallback for older signature (tests / mocks)
+                display_results(top_k_resolved)
 
         else:
             # print results

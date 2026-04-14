@@ -7,6 +7,7 @@ from PIL import Image, UnidentifiedImageError
 
 def display_results(
     top_k_resolved: list[tuple[Path, float]],
+    query_path: Path | None = None,
     query_paths: list[Path] | None = None,
 ) -> None:
     """
@@ -21,6 +22,10 @@ def display_results(
         This avoids reliance on an interactive matplotlib backend.
     """
     items = top_k_resolved
+
+    # normalize input (backward compatibility)
+    if query_paths is None:
+        query_paths = [query_path] if query_path is not None else []
 
     # prepend query images if provided
     if query_paths:

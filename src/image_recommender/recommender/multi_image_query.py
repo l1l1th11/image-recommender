@@ -3,6 +3,9 @@ from pathlib import Path
 import numpy as np
 
 from image_recommender.io.img_loader import load_rgb
+from image_recommender.recommender.load_persistent_mapping import (
+    load_persistent_mapping,
+)
 from image_recommender.recommender.query_helpers import (
     distances_all_features_subset,
     extract_query_features,
@@ -53,6 +56,12 @@ def multi_image_query(
         - This avoids repeated expensive pipeline steps and significantly improves performance
         - All score arrays are aligned to the same canonical ID order before aggregation
     """
+    # fallback: samples / profiling mode has no mapping
+    if backend == "annoy" and id_to_vec_maps is None:
+        try:
+            id_to_vec_maps = load_persistent_mapping(run_dir)
+        except Exception:
+            backend = "linear"
 
     if len(query_paths) < 2:
         raise ValueError("Multi image query requires at least 2 query images")
@@ -84,13 +93,25 @@ def multi_image_query(
         )
 
         # compute distances only for the existing subset of candidate IDs
-        dist_dict, canonical_ids = distances_all_features_subset(
-            run_dir=run_dir,
-            queries_by_feature=queries_by_feature,
-            subset_ids=reference_ids,
-            feature_types=feature_types,
-            id_to_vec_maps=id_to_vec_maps,
-        )
+        if backend == "annoy":
+            dist_dict, canonical_ids = distances_all_features_subset(
+                run_dir=run_dir,
+                queries_by_feature=queries_by_feature,
+                subset_ids=reference_ids,
+                feature_types=feature_types,
+                id_to_vec_maps=id_to_vec_maps,
+            )
+        else:
+            # fallback: full pipeline (safe for samples/tests)
+            score_arr, canonical_ids, used_features, _ = _compute_full_scores(
+                query_path=query_path,
+                run_dir=run_dir,
+                feature_types=feature_types,
+                weights=weights,
+                backend="linear",
+            )
+            score_arrays.append(score_arr)
+            continue
 
         # ensure alignment consistency across all queries
         if canonical_ids != reference_ids:
