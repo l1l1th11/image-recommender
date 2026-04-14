@@ -21,6 +21,16 @@ REQUIRED_META_KEYS = {
 
 
 def shard_dir(run_dir: Path | str, feature_type: str, shard_id: int) -> Path:
+    """
+    Returns the directory for a shard in a run directory.
+
+    Inputs:
+    - run_dir: base directory for the run
+    - feature_type: type of feature (embedding, hsv, phash)
+    - shard_id: integer id of the shard
+
+    Output: Path to the shard directory
+    """
     # convert to path
     run_dir = Path(run_dir)
     # build shard directory
@@ -31,7 +41,7 @@ def shard_dir(run_dir: Path | str, feature_type: str, shard_id: int) -> Path:
 
 def shard_paths(run_dir: Path | str, feature_type: str, shard_id: int) -> tuple[Path, Path, Path]:
     """
-    Return artifact paths for one shard in a run directory.
+    Returns artifact paths for one shard in a run directory.
 
     Example:
         >>> shard_paths("runs/run_1", "hsv", 1)
@@ -53,6 +63,15 @@ def shard_paths(run_dir: Path | str, feature_type: str, shard_id: int) -> tuple[
 
 
 def _write_meta_json_atomic(meta_path: Path, meta: dict[str, object]) -> None:
+    """
+    Writes metadata to a JSON file.
+
+    Inputs:
+    - meta_path: path to write meta to
+    - meta: dictionary of metadata
+
+    Output: None (writes to disk)
+    """
     # build json string from meta dict
     json_meta = json.dumps(meta, indent=2, sort_keys=True)
     # encode to bytes
@@ -67,6 +86,15 @@ def _write_meta_json_atomic(meta_path: Path, meta: dict[str, object]) -> None:
 
 
 def _write_ids_npy_atomic(ids_path: Path, ids: Sequence[int]) -> None:
+    """
+    Writes ids to a .npy file.
+
+    Inputs:
+    - ids_path: path to write ids to
+    - ids: sequence of integer ids
+
+    Output: None (writes to disk)
+    """
     # convert to array
     ids_arr = np.asarray(ids, dtype=np.int64)
     # check its 1D
@@ -83,6 +111,17 @@ def _write_ids_npy_atomic(ids_path: Path, ids: Sequence[int]) -> None:
 
 
 def _write_features_npy_atomic(features_path: Path, features: np.ndarray) -> None:
+    """
+    Writes features to a .npy file.
+    Validates that the features are 2D and ensures they are C-contiguous.
+    If not C-contiguous, makes a contiguous copy before writing.
+
+    Inputs:
+    - features_path: path to write features to
+    - features: 2D array of shape (num_samples, feature_dim)
+
+    Output: None (writes to disk)
+    """
     # check array is 2D
     if features.ndim != 2:
         raise ValueError("Features must be a 2D array.")
@@ -107,6 +146,19 @@ def write_validate_shard_atomic(
     ids: Sequence[int],
     meta: dict[str, object],
 ) -> None:
+    """
+    Validates and writes a shard to disk.
+
+    Inputs:
+    - run_dir: base directory for the run
+    - shard_id: integer id of the shard
+    - feature_type: type of feature (embedding, hsv, phash)
+    - features: 2D array of shape (num_samples, feature_dim)
+    - ids: sequence of integer image ids, same length as num_samples
+    - meta: dictionary of metadata, must contain keys in REQUIRED_META_KEYS and match VERSION
+
+    Output: None. Writes features, ids and meta to disk.
+    """
     # validate
     validate_shard(
         feature_type=feature_type,
@@ -131,6 +183,16 @@ def write_validate_shard_atomic(
 
 
 def success_marker_path(run_dir: Path | str, feature_type: str, shard_id: int) -> Path:
+    """
+    Returns the path to the success marker for a given shard.
+
+    Inputs:
+    - run_dir: base directory for the run
+    - feature_type: type of feature (embedding, hsv, phash)
+    - shard_id: integer id of the shard
+
+    Output: Path to the success marker
+    """
     # build shard directory
     shard_path = shard_dir(run_dir=run_dir, feature_type=feature_type, shard_id=shard_id)
     # build marker path
@@ -140,6 +202,16 @@ def success_marker_path(run_dir: Path | str, feature_type: str, shard_id: int) -
 
 
 def mark_success(run_dir: Path | str, feature_type: str, shard_id: int) -> None:
+    """
+    Marks a shard as successfully completed by creating a success marker file.
+
+    Inputs:
+    - run_dir: base directory for the run
+    - feature_type: type of feature (embedding, hsv, phash)
+    - shard_id: integer id of the shard
+
+    Output: None (writes to disk)
+    """
     # build marker path
     marker_path = success_marker_path(run_dir=run_dir, feature_type=feature_type, shard_id=shard_id)
     # check shard dir exists
@@ -152,6 +224,16 @@ def mark_success(run_dir: Path | str, feature_type: str, shard_id: int) -> None:
 
 
 def list_pending(run_dir: Path | str, feature_type: str, n_shards: int) -> list[int]:
+    """
+    Returns a list of shard ids that are pending.
+
+    Inputs:
+    - run_dir: base directory for the run
+    - feature_type: type of feature (embedding, hsv, phash)
+    - n_shards: total number of shards
+
+    Output: list of pending shard ids
+    """
     # validate inputs
     if n_shards < 0:
         raise ValueError("Number of shards must be >= 0.")
@@ -173,6 +255,17 @@ def list_pending(run_dir: Path | str, feature_type: str, n_shards: int) -> list[
 def read_validate_shard(
     run_dir: Path | str, feature_type: str, shard_id: int, mmap: bool = False
 ) -> tuple[np.ndarray | np.memmap, list[int]]:
+    """
+    Reads and validates a shard from disk.
+
+    Inputs:
+    - run_dir: base directory for the run
+    - feature_type: type of feature (embedding, hsv, phash)
+    - shard_id: integer id of the shard
+    - mmap: whether to load features with memory mapping (for large shards)
+
+    Output: tuple of (features, ids) where features is a 2D array or memmap and ids is a list
+    """
     # check shard_id is not negative
     if shard_id < 0:
         raise ValueError("Shard id must be >= 0.")

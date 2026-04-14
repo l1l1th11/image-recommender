@@ -50,6 +50,16 @@ def _compute_full_scores(
     annoy_backend: Optional pre initialized annoy backend
     id_to_vec_maps: Precomputed mappings {feature_type: {image_id: feature_vector}} required for annoy backend
 
+    Inputs:
+    - query_path: Path to query image
+    - run_dir: Directory containing feature folders
+    - feature_types: Optional subset of feature types to process
+    - weights: Optional weights (must match keys, sum to appr. 1)
+    - backend: "linear" (default) or "annoy"
+    - k_candidates: Size of candidate subset retrieved by Annoy backend (optional, defaults applied if None)
+    - subset_ids: Optional list of candidate ids to consider (bypasses annoy search if provided)
+    - annoy_backend: Optional pre-initialized annoy backend (only used if backend="annoy")
+
     Output:
         score_arr: Array of shape (N,) with scores aligned to canonical_ids
         canonical_ids: Candidate IDs aligned to score_arr

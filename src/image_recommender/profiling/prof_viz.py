@@ -8,6 +8,12 @@ def pstats_to_dataframe(stats, project_filter="image_recommender"):
 
     """
     Converts pstats to a DataFrame for analysis and visualization.
+
+    Inputs:
+    - stats: pstats.Stats object
+    - project_filter: Optional string to filter for functions in the project
+    
+    Output: DataFrame with columns: file, function, label, ncalls, tottime, cumtime
     """
 
     records = []
@@ -41,6 +47,13 @@ def pstats_to_dataframe(stats, project_filter="image_recommender"):
 def _interpolate_color(value, min_v, max_v):
     """
     Interpolates color between green (fast) and red (slow).
+
+    Inputs:
+    - value: the value to determine the color for
+    - min_v: the minimum value in the range (mapped to green)
+    - max_v: the maximum value in the range (mapped to red)
+
+    Output: a tuple representing the RGB color normalized to [0, 1]
     """
 
     green = (28, 160, 68)
@@ -61,6 +74,13 @@ def _interpolate_color(value, min_v, max_v):
 def plot_top_bottlenecks(df, output_path: Path, top_n=20):
     """
     Plots the top bottlenecks from the profiling data.
+
+    Inputs:
+    - df: DataFrame containing profiling data with columns 'label' and 'cumtime'
+    - output_path: Path to save the plot image
+    - top_n: number of top bottlenecks to include in the plot
+
+    Output: None (saves plot to disk)
     """
 
     if df.empty:
