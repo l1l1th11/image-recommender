@@ -7,6 +7,13 @@ from image_recommender.config import VAR_EPSILON
 
 
 def validate_input(dist_dict: dict[str, np.ndarray]) -> int:
+    """
+    Validates that the input distance dict is well-formed.
+
+    Input: Dictionary of feature name to distance array
+
+    Output: Number of candidates
+    """
     # check min one feature was provided
     if not dist_dict:
         raise ValueError("No dist_dict were provided, can't calculate scores")
@@ -23,6 +30,13 @@ def validate_input(dist_dict: dict[str, np.ndarray]) -> int:
 
 
 def normalize_array(dist_arr: np.ndarray) -> np.ndarray:
+    """
+    Normalizes a distance array to [0, 1] using min-max normalization.
+
+    Input: Distance array
+
+    Output: Normalized distance array
+    """
     # compute min and max
     arr_min = np.min(dist_arr)
     arr_max = np.max(dist_arr)
@@ -38,6 +52,13 @@ def normalize_array(dist_arr: np.ndarray) -> np.ndarray:
 
 
 def normalize_dict(dist_dict: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
+    """
+    Normalizes all distance arrays in the dict to [0, 1].
+
+    Input: Dictionary of feature name to distance array
+
+    Output: Dictionary of feature name to normalized distance array
+    """
     norm_dist_dict = {}
 
     for feature, dist_arr in dist_dict.items():
@@ -48,6 +69,13 @@ def normalize_dict(dist_dict: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
 
 
 def filter_0_variance(norm_dist_dict: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
+    """
+    Filters out features with near zero variance (range < VAR_EPSILON) from the normalized distance dict.
+
+    Input: Dictionary of feature name to normalized distance array
+
+    Output: Dictionary of feature name to normalized distance array
+    """
     filtered_dist_dict = {}
     epsilon = VAR_EPSILON
 
@@ -61,6 +89,13 @@ def filter_0_variance(norm_dist_dict: dict[str, np.ndarray]) -> dict[str, np.nda
 
 
 def score_candidates(filtered_dist_dict: dict[str, np.ndarray]) -> np.ndarray:
+    """
+    Computes a final score per candidate by combining multiple feature distances.
+
+    Input: Dictionary of feature name to normalized distance array
+
+    Output: Score array
+    """
     # stack distance arrays
     dist_arrs = list(filtered_dist_dict.values())
     stacked_dist_arrs = np.stack(dist_arrs, axis=0)
@@ -75,7 +110,7 @@ def compute_scores(
     dist_dict: dict[str, np.ndarray], weights: dict[str, float] | None = None
 ) -> np.ndarray:
     """
-    Compute a final score per candidate by combining multiple feature distances.
+    Computes a final score per candidate by combining multiple feature distances.
 
     Steps:
     - validate input alignment
@@ -83,11 +118,11 @@ def compute_scores(
     - drop near constant features (range < VAR_EPSILON)
     - fuse remaining features via mean or weighted sum (weights renormalized after filtering)
 
-    Args:
+    Inputs:
         dist_dict: per feature distance arrays (same length & order)
         weights: optional weights (must match keys, sum to appr. 1)
 
-    Returns:
+    Output:
         float32 score array (aligned with input, lower = better)
 
     Edge case:

@@ -4,8 +4,12 @@ import numpy as np
 def cosine_distance_to_many(query: np.ndarray, candidates: np.ndarray) -> np.ndarray:
     """
     Computes cosine distance from one query vector to many candidate vectors.
-    Input: query (D,), candidates (N, D)
+    Inputs:
+    - query (D,)
+    - candidates (N, D)
+
     Output: distances (N,)
+
     Zero candidates are treated as distance +inf.
     Possible error: ValueError if query is zero vector.
     """
@@ -51,8 +55,11 @@ def cosine_distance_to_many(query: np.ndarray, candidates: np.ndarray) -> np.nda
 def cosine_distance(query: np.ndarray, candidate: np.ndarray) -> float:
     """
     Computes cosine distance from one query vector to one candidate vector.
+
     Input: query (D,), candidate (D,)
+
     Output: distance (scalar)
+
     Zero candidates are treated as distance +inf.
     Possible error: ValueError if query is zero vector.
     """

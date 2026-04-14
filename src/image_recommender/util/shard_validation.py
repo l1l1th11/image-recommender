@@ -11,6 +11,19 @@ def validate_shard(
     required_keys: set[str],
     expected_version: int,
 ) -> None:
+    """
+    Validates a shard.
+
+    Inputs:
+    - feature_type: type of feature (embedding, hsv, phash)
+    - features: 2D array of shape (num_samples, feature_dim)
+    - ids: sequence of integer image ids, same length as num_samples
+    - meta: dictionary of metadata, must contain keys in required_keys and "version" matching expected_version.
+    - required_keys: set of required meta keys
+    - expected_version: expected metadata version
+
+    Output: None (if valid)
+    """
     # check features dimensions
     if features.ndim != 2:
         raise ValueError("Feature array has wrong dimensions.")

@@ -6,7 +6,7 @@ FORMAT = "%(levelname)s | %(name)s | %(message)s"  # format for log output
 
 
 def setup_basic_logging() -> None:
-    """Configure global logging once with level from IMREC_LOG_LEVEL (default INFO)"""
+    """Configures global logging once with level from IMREC_LOG_LEVEL (default INFO)"""
     root = logging.getLogger()
 
     # check if handlers are already configured
@@ -22,5 +22,5 @@ def setup_basic_logging() -> None:
 
 
 def get_logger(name: str) -> logging.Logger:
-    """Return named logger (assumes setup_basic_logging() already ran)"""
+    """Returns named logger (assumes setup_basic_logging() already ran)"""
     return logging.getLogger(name)  # typically called with __name__

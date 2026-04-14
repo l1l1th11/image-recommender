@@ -19,6 +19,15 @@ logger = get_logger(__name__)
 
 
 def load_canonical_ids(run_dir: Path | str, feature_type: str) -> list[int]:
+    """
+    Loads and validates canonical candidate ids.
+
+    Inputs:
+    - run_dir: Directory containing feature folders
+    - feature_type: Feature type to load ids from ("hsv", "embedding", "phash")
+
+    Output: List of canonical candidate ids in shard-order
+    """
     # get sorted shard dirs
     data = Path(run_dir) / Path(feature_type)
     shard_dirs = [shard_dir for shard_dir in sorted(data.glob("shard_*")) if shard_dir.is_dir()]
@@ -44,6 +53,16 @@ def load_canonical_ids(run_dir: Path | str, feature_type: str) -> list[int]:
 def align_distances(
     canonical_ids: list[int], backend_ids: list[int], backend_distances: np.ndarray
 ) -> np.ndarray:
+    """
+    Aligns distances from the search backend to the canonical id order.
+
+    Inputs:
+    - canonical_ids: List of canonical candidate ids
+    - backend_ids: List of ids from the search backend
+    - backend_distances: Array of distances from the search backend
+
+    Output: Array of distances aligned to canonical_ids order
+    """
     # ensure no duplicate ids in backend
     if len(backend_ids) != len(set(backend_ids)):
         raise ValueError("Backend id set contains duplicates")
@@ -68,9 +87,9 @@ def distances_per_feature(
     query: np.ndarray,
 ) -> np.ndarray:
     """
-    Compute distances from a single query to all candidates for one feature type.
+    Computes distances from a single query to all candidates for one feature type.
 
-    Input:
+    Inputs:
         run_dir: Directory containing feature folders
         feature_type: Feature type to process ("hsv", "embedding", "phash")
         distance_fn: Function calculating distances between query (D,) and candidates (N, D)
@@ -112,7 +131,7 @@ def distances_all_features(
     """
     Computes distances from a single query to all candidates for all available feature types.
 
-    Input:
+    Inputs:
         run_dir: Directory containing feature folders
         queries_by_feature: {feature_type: query_vector (D,)} with precomputed features
         feature_types: Optional subset of feature types to process
@@ -317,7 +336,7 @@ def get_score_arr(
     """
     Computes a per candidate score array from aligned per feature distance arrays.
 
-    Input:
+    Inputs:
         dist_dict: per feature distance arrays (same length & order)
         weights: Optional weights (must match keys, sum to appr. 1)
 
@@ -343,7 +362,7 @@ def extract_query_features(
     """
     Extracts query feature vectors from an RGB image for the specified feature types.
 
-    Input:
+    Inputs:
         img_rgb: rgb image as a numpy array (prev. validated by image loader)
         feature_types: Optional list of feature types to extract. If None, all supported features are attempted
 
